@@ -146,12 +146,10 @@ void loop()
 
       //if (cnt == floor(loop_len*3/4)){
         canRx(0, &rxlMsgID, &rxbExtendedFormat, &cRxData[0], &rxcDataLen);
-        current_minus = map_double((uint16_t)(cRxData[6] + (cRxData[7] << 8)), 0, 65535, 0, 360);
+        current_minus = map_double((uint16_t)(cRxData[6] + (cRxData[7] << 8)), 0, 65535, 0, 360); //actually position, not current
       //}
       Serial.println(current_minus);
-  
       
-  
     //END INNER LOOP *******************************************************
     } else {
       behind = false;
