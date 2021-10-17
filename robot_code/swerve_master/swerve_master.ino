@@ -131,7 +131,7 @@ double delvMax[] = {0, 0, 0};   // instantaneous x, y, w max velocity dt per tic
 // In the above order, Right Side: FL, FR, BR, BL, Left Side: BR, BL, FR, FL
 // Order for programming:       R: FL, FR, BL, BR,         L: FL, FR, BL, BR
 int forcepins[] =                 {A0, A1, A3, A2,            A7, A6, A5, A4};    // Select the input pins for the load cells
-int forcezeros[] {1995, 1852, 2229, 2348, 2152, 2081, 2007, 2305};                // Zero force values with pads on top of sensors - in forcepins[] order
+int forcezeros[] = {1995, 1852, 2229, 2348, 2152, 2081, 2007, 2305};                // Zero force values with pads on top of sensors - in forcepins[] order
 double lccapacity = 50; // Load cell capacity, kg
 int anRes = 12;                           // analogRead resolution, bits
 double lcgain = lccapacity / (pow(2, anRes)/2); // Scaling constant to convert from analog value to kilogram-force on load cell
@@ -144,6 +144,13 @@ double weightthresh = 30;  //min weight to not enable estop
 Pads* pads = new Pads(forcepins, forcezeros, xgain, ygain, zgain, xyMax, wMax, weightthresh);
 int mode = 1;   //0 = RC mode (teleop), 1 = weight control mode
 int eStop = 0;  // e-stop variable for safety
+
+// Thumbstick setup
+int thumbpins[] =   {           A0,   A1,   A2,   A3};
+int thumbzeros[] = {            2112, 2066, 2060, 2113};
+// In the above order,          LV,   LH,   RH,   RV
+// Positive orientation:        DN, L , L , DN
+// Offsets:
 
 // Debug related - generally outputs serial information, which will slow down loop speeds. 0 = don't print out to serial, 1 = print information to serial 
 bool debugRx = 0;       // whether or not to debug receiver
@@ -278,7 +285,16 @@ void loop()
         kinematics[i]->calc((int)v[0], (int)v[1], (int)v[2]*sign(yRatio));
       }
       timer[3] = micros();
-    } else if (mode == 1){  // in riding mode
+    } else if (mode == 1){  // Thumbstick mode
+      
+      v[0] = constrain((double)analogRead(thumbpins[2]) - thumbzeros[2],-2000,2000)/(-4.0);
+      v[1] = constrain((double)analogRead(thumbpins[3]) - thumbzeros[3],-2000,2000)/(-4.0);
+      v[2] = constrain((double)analogRead(thumbpins[1]) - thumbzeros[1],-2000,2000)/(-4.0);  
+      for (int i = 0; i<nWheels; i++){
+        kinematics[i]->calc((int)v[0], (int)v[1], (int)v[2]*sign(yRatio));
+      }    
+    } else if (mode == 2){  // in riding mode
+    
       double again = 1.0;
       double maxspeed = 250;
       orientation[0] = (imu_channels[0]->getCh() - imu_zero[0]) * pulse2deg[0];
@@ -304,6 +320,16 @@ void loop()
         kinematics[i]->calc(v[0], v[1], v[2]);
       }
     }
+       /*
+          Serial.println("******");
+      for (int k = 0; k < 3; k++){
+        Serial.print(k);
+        Serial.print(": ");
+        //Serial.println((int)(analogRead(thumbpins[k])) - thumbzeros[k]);
+        Serial.println(v[k]);
+      }
+      delay(50);*/
+      
     for (int i = 0; i<nWheels; i++){
       yaw[i]->yawTo(kinematics[i]->getTargetYaw(), channels[estop_ch]->getCh(), rcLost);
       delayMicroseconds(steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50 
@@ -338,19 +364,23 @@ void loop()
     if (channels[mode_ch]->getCh() < -300) {  //default mode is tele-op
       mode = 0;
       eStop = 0; //Also disable e-stop if tripped
+      //Serial.println("mode = 0");
+
       for (int i = 0; i < 3; i++){
         delvMax[i] = aMax[i] * tInner / 1000000.0;
       }
     }
     if (channels[mode_ch]->getCh() >300) {  //for riding mode
-      mode = 1;
+      mode = 2;
       //Serial.println("riding mode");
       //imu.printReadouts();
     }
     if (channels[mode_ch]->getCh() > -300 && channels[mode_ch]->getCh() < 300){ //when switch is in center pos, set all velocities to zero to prep for riding
-      v[0] = 0;
-      v[1] = 0;
-      v[2] = 0;
+      //v[0] = 0;
+      //v{1] = 0;
+      //v[2] = 0;
+      mode = 1;
+      //Serial.println("mode = 1");
     }
     if (pads->fallDetected()) {
       eStop = 1;
