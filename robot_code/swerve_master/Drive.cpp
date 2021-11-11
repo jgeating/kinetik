@@ -10,25 +10,26 @@ Drive::Drive(double vMax, double aMax, double dRatio, double tInner, int len, in
   this->v = 0;            // Instantaneous velocity
   this->vMax = vMax;      // Velocity limit, for both acceleration and velocity mode
   this->aMax = aMax;      // Acceleration limit, for both velocity (slewing) and acceleration mode
-  this->dRatio = dRatio;  // scaling factor from physical rad/sec to erpms
+  this->dWheel = dWheel;  // wheel diameter, m
+  this->dRatio = dRatio;  // scaling factor from physical rad/sec to erpms. erpm = pole pairs * rad/sec * 1/(2*pi) rev/rad * 60 sec/min
   this->tInner = tInner;
   this->len = len;
   this->mot = mot;
-  
+
     // Kinematics and constants calculations
   MaxDelRPM = aMax * tInner / 1000000.0;//need to change variables
 }
 
-// This function sends velocity commands to a Drive wheel, while abiding by acceleration limits
+// This function sends velocity commands to a Drive wheel, while abiding by acceleration limits. Input in m/s 
 void Drive::slewVel(double vel, int ch, int rcLost){
 
   // used in loop()
-  double delRPM = vel - this->v;
+  double dv = vel - this->v;
   
-  if (abs(delRPM) < MaxDelRPM){
+  if (abs(dv) < dv){
     this->v = vel;
   } else {
-    this-> v= this->v + sign(delRPM) * MaxDelRPM;
+    this-> v= this->v + sign(dv) * MaxDelRPM;
   }
   this->v = constrain(this->v, -1*this->vMax, this->vMax);
   this->setVel(this->v,ch,rcLost);
@@ -41,22 +42,22 @@ void Drive::setVel(double vel, int ch, int rcLost){//vel is in erpm
   bool ext = true;
   
   for (int m = 0; m < len; m++) {
-    this->cTxData1[len - m -1] = (int)vel >> 8 * m;
+    this->cTxData1[len - m -1] = (int)(vel*dRatio) >> 8 * m;
   }
   int idd = this->mot+1 | CAN_PACKET_SET_RPM << 8;  // 6/22/2021, added +1 because I indexed at 1, not 0
-  if (ch > 400 && !rcLost){ // Only send motor if pot #5 is turned all the way to the right, and rc signal is present
+  if (ch > 400 && !rcLost){ // Only send motor if safety channel is in the correct range, and rc signal is present
     canTx(1, idd, ext, this->cTxData1, len);
   }
 }
 
 void Drive::setAcc(double acc, int ch, int rcLost){
   // used in loop()
-  double delRPM = acc*tInner/1000000.0;
+  double dv = acc*tInner/1000000.0;
   
-  if (abs(delRPM) < MaxDelRPM){
-    this->v = this->v+delRPM;
+  if (abs(dv) < MaxDelRPM){
+    this->v = this->v+dv;
   } else {
-    this-> v= this->v + sign(delRPM) * MaxDelRPM;
+    this-> v= this->v + sign(dv) * MaxDelRPM;
   }
   this->v = constrain(this->v, -1*this->vMax, this->vMax);
   this->setVel(this->v,ch,rcLost);

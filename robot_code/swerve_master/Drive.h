@@ -7,13 +7,14 @@
 class Drive
 {
   private:
-    double v; // Current velocity of yaw motors, degrees/second
-    double a; // Current acceleration of drive motors
-    double vMax;   // Max angular velocity of yaw motor, in motor frame, degrees/second
-    double aMax;   // Max angular acceleration of yaw motor, in motor frame, degrees/second^2
-    double dRatio; // scaling factor from physical rad/sec to erpms
-    double tInner;
-    double MaxDelRPM;//maximum change per loop
+    double v;           // Current velocity of yaw motors, degrees/second
+    double a;           // Current acceleration of drive motors
+    double vMax;        // Max angular velocity of yaw motor, in motor frame, rad/s^2
+    double aMax;        // Max angular acceleration of yaw motor, in motor frame, rad/s^2
+    double dWheel;      // wheel diameter, m
+    double dRatio;      // scaling factor from physical rad/sec to erpms
+    double tInner;      // length of inner loop, microseconds
+    double MaxDelRPM;   // Maximum change per loop
     byte cTxData1[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     int len;
     int mot;

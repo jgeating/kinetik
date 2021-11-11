@@ -7,18 +7,14 @@ class Kinematics
     int DEAD_ZONE;
     double xYawCoeff;
     double yYawCoeff;
-    double velGain; // 30 for humans driving
-    double yawGain; // 60 for safe driving
     double targetYaw;
-    double targetRPM;
+    double targetVel;
+    double r;
   public:
-    Kinematics(double velGain, double yawGain, double RADIUS_SWERVE_ASSEMBLY, int DEAD_ZONE, int wheelIndex);
-    void calc(int xChannel, int yChannel, int zChannel);
+    Kinematics(double RADIUS_SWERVE_ASSEMBLY, int DEAD_ZONE, int wheelIndex);
+    void calc(double vx, double vy, double vz);
     double getTargetYaw();
-    double getTargetRPM();
-    void setVelGain(double velGain);
-    void setYawGain(double yawGain);
+    double getTargetVel();
 }; 
-
 
 #endif
