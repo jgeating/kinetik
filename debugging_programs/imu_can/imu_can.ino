@@ -34,8 +34,7 @@ byte cDataLen;
 long rxlMsgID;
 bool rxbExtendedFormat;
 byte rxcDataLen;
-int canID = 22; 
-
+long canID = 22; //IMU node ID
 
 void setup() {
   // Setup serial
@@ -53,13 +52,8 @@ void setup() {
   delay(100);
 
     bno.setExtCrystalUse(true);
-  
-  if(canInit(0, CAN_BPS_1000K) == CAN_OK)
-    Serial.print("CAN0: Initialized Successfully.\n\r");
-  else
-    Serial.print("CAN0: Initialization Failed.\n\r");  
 
-  if(canInit(1, CAN_BPS_1000K) == CAN_OK)
+  if(canInit(0, CAN_BPS_500K) == CAN_OK)
     Serial.print("CAN1: Initialized Successfully.\n\r");
   else
     Serial.print("CAN1: Initialization Failed.\n\r");  
@@ -83,7 +77,7 @@ void loop() {
     if(lMsgID == canID && cRxData[0] == 0xA7)
     {
       imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-
+      
       /* Display the floating point data */
       /*
       Serial.print("X: ");
@@ -92,8 +86,12 @@ void loop() {
       Serial.print(euler.y());
       Serial.print(" Z: ");
       Serial.println(euler.z());
-      delay(20);
       */
+      
+      //delay(20);
+      
+      //delayMicroseconds(1000);
+      
       ang = 100.0 * euler.x();
       stmp[2] = *((uint8_t *)(&ang));
       stmp[3] = *((uint8_t *)(&ang)+1);
@@ -104,21 +102,6 @@ void loop() {
       stmp[6] = *((uint8_t *)(&ang));
       stmp[7] = *((uint8_t *)(&ang)+1);
       canTx(0, canID, false, stmp, 8);
-    } 
-  }
-}
-
-void rxMsg(){
-  if(canRx(1, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen) == CAN_OK)
-  {
-    rxData = 0;
-    for (int i = 0; i < len; i++){
-      rxData = rxData << 8;
-      rxData |=  cRxData[i];
     }
   }
-}
-
-double map_double(double x, double in_min, double in_max, double out_min, double out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }

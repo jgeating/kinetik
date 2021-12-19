@@ -43,6 +43,7 @@ double y = 0; // y angle of imu vest
 double z = 0; // z angle of imu vest
 unsigned char getEulerCode[8] = {0xA7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 int canID = 22;
+int IMU_bus = 1;
 
 // Kinematics
 int nWheels = 4;
@@ -253,51 +254,53 @@ void loop()
       qd_d[2] = constrain((double)analogRead(thumbpins[1]) - thumbzeros[1], -2000, 2000) / (-2000.0) * qd_max[2];
       // in riding mode
     } else if (mode == 2) {
-      canTx(  0,  canID, false, getEulerCode,   8); 
-      //delay(500);
-      //delayMicroseconds(5000);
+      canTx(  IMU_bus,  canID, false, getEulerCode,   8); 
+      delayMicroseconds(100);
       //    Bus, ID,   ext,          dat, len 
       // *Currently no delay between Tx and Rx. Might be source of error to check in the future
       bool buffed = 1;
       while (buffed){
-      if(canRx(0, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen) == CAN_OK){
-        if(lMsgID == canID){
-          buffed = 0;
-          int16_t temp = (uint16_t)(cRxData[0] + (cRxData[1] << 8));
-          x = (uint16_t)(cRxData[2] + (cRxData[3] << 8));   
-          y = (uint16_t)(cRxData[4] + (cRxData[5] << 8));    
-          z = (uint16_t)(cRxData[6] + (cRxData[7] << 8));   
-          orientation[0] = y;
-          orientation[1] = z;
-          
-          /*
-          Serial.print("temp: ");
-          Serial.print(temp);
-          Serial.print(", x: ");
-          Serial.print(x);
-          Serial.print(", y: ");
-          Serial.print(y);
-          Serial.print(", z: ");
-          Serial.println(z);
-          */
+        if(canRx(IMU_bus, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen) == CAN_OK){
+          if(lMsgID == canID){
+            int16_t temp = (int16_t)(cRxData[0] + (cRxData[1] << 8));
+            x = (double)((int16_t)(cRxData[2] + (cRxData[3] << 8)))/100.0;   
+            y = (double)((int16_t)(cRxData[4] + (cRxData[5] << 8)))/100.0;
+            z = (double)((int16_t)(cRxData[6] + (cRxData[7] << 8)))/100.0;
+            orientation[0] = y;
+            orientation[1] = z;
 
-          Serial.print("CAN0: Rx - MsgID:");
-          Serial.print(lMsgID, HEX);
-          Serial.print(" Ext:");
-          Serial.print(bExtendedFormat);
-          Serial.print(" Len:");
-          Serial.print(cDataLen);
-          Serial.print(" Data:");
-  
-          for(byte cIndex = 0; cIndex < cDataLen; cIndex++)
-          {
-            Serial.print(cRxData[cIndex], HEX);
-            Serial.print(" ");
-          }// end for
-  
-          Serial.print("\n\r");      
+            /*
+            Serial.print("temp: ");
+            Serial.print(temp);
+            Serial.print(", x: ");
+            Serial.print(x);
+            Serial.print(", y: ");
+            Serial.print(y);
+            Serial.print(", z: ");
+            Serial.println(z);
+            */
+
+            /*
+            Serial.print("CAN: Rx - MsgID:");
+            Serial.print(lMsgID);
+            Serial.print(" Ext:");
+            Serial.print(bExtendedFormat);
+            Serial.print(" Len:");
+            Serial.print(cDataLen);
+            Serial.print(" Data:");
+    
+            for(byte cIndex = 0; cIndex < cDataLen; cIndex++)
+            {
+              Serial.print(cRxData[cIndex], HEX);
+              Serial.print(" ");
+            }
+    
+            Serial.print("\n\r");    
+            */
+          }
+        } else {
+          buffed = 0;
         }
-      }
       }
       
       while abs(orientation[0] > 180) {
@@ -334,7 +337,7 @@ void loop()
       Serial.print(", vel z: ");
       Serial.println(qd_d[2]);
       */
-      delay(20);
+      //delay(20);
     }
 
     // Perform planning
@@ -355,7 +358,6 @@ void loop()
     for (int i = 0; i < nWheels; i++) {
       yaw[i]->yawTo(kinematics[i]->getTargetYaw(), channels[estop_ch]->getCh(), rcLost);
       delayMicroseconds(steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
-      canRx(0, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen);
       drive[i]->slewVel(kinematics[i]->getTargetVel(), channels[estop_ch]->getCh(), rcLost);
       delayMicroseconds(driveCanDelay);
     }
