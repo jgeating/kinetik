@@ -92,8 +92,7 @@ int Planner::plan(double x_in, double y_in, double z_in){
     case 1:   // zero IMU
       this->setZeros(input[0], input[1], input[2]);
       break;
-    case 3: // IMU mode, velocity (2)
-    case 2: // or acceleration (3) control. inputs are in IMU lean angle
+    case 2: // or acceleration (2) control. inputs are in IMU lean angle
       // constrain inputs within to +/- pi
       for (int i = 0; i < 3; i++){
         //this->input[i] = this->dewrap(input[i]);                          // dewrap input to make within ±180°
@@ -110,16 +109,18 @@ int Planner::plan(double x_in, double y_in, double z_in){
       }
       return this->calcFromVels();
       break;
+    case 3: // IMU mode, velocity (3)
+      return 0;
+      break;
     default:
       return 0;
   }
 }
 
-int Planner::plan_world(double x_in, double y_in, double z_in, double alpha){
-  double beta = atan2(y_in, x_in);
-  double qd_n = sqrt(y_in*y_in + x_in*x_in);
-  double gamma = alpha + beta;
-
+int Planner::plan_world(double x_in, double y_in, double z_in, double alpha){ // For driving the robot wrt world frame. Takes in IMU orientation and transforms inputs to robot frame
+  double beta = atan2(y_in, x_in);            // angle of desired velocity vector wrt world frame
+  double qd_n = sqrt(y_in*y_in + x_in*x_in);  // velocity magnitude 
+  double gamma = alpha + beta;                // angle of desired velocity vector wrt robot frame
   return this->plan(qd_n*cos(gamma), qd_n*sin(gamma), z_in);
 }
 

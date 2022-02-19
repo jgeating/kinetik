@@ -8,7 +8,7 @@
 
 // Check I2C device address and correct line below (by default address is 0x29 or 0x28)
 //                                   id, address
-Adafruit_BNO055 bno =  Adafruit_BNO055(-1, 0x28);
+Adafruit_BNO055 bno; 
 
 void setup() {
   // Setup serial
@@ -17,13 +17,21 @@ void setup() {
   pinMode(13, OUTPUT);
   //analogReadResolution(anRes);
 
-  if(!bno.begin())
-  {
-    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+  for (int i = 100; i < 256; i++){
+    Adafruit_BNO055(-1, i);
+    if(!bno.begin())
+    {
+      Serial.print(", ");
+      Serial.print(i);
+    } else {
+      Serial.print("Connection on: ");
+      Serial.println(i);
+      break;
+    }
+    delay(100);
   }
-  delay(100);
-  
-  bno.setExtCrystalUse(true);
+
+    bno.setExtCrystalUse(true);
 
 
   delay(1000);    // Give motor time to move
@@ -47,7 +55,8 @@ void loop() {
       imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
       
       /* Display the floating point data */
-      
+
+      /*
       Serial.print("X: ");
       Serial.print(euler.x());
       Serial.print(" Y: ");
@@ -55,7 +64,7 @@ void loop() {
       Serial.print(" Z: ");
       Serial.println(euler.z());
       delay(20);
-      
+      */
     //}
   //}
 }

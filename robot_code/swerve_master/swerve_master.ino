@@ -32,12 +32,12 @@ const int CHANNEL_PIN[] = {
 // IMU stuff
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28);  // (id, address), default 0x29 or 0x28
 double alpha = 0;
-imu::Vector<3> euler;
+//imu::Vector<3> euler;
 
 // Robot level trajectory/control
-double qd_max[] = {3, 3, 10};     // max velocity: {m/s, m/s, rad/s}
-double qdd_max[] = {10, 10, 20};  // max acceleration: {m/s^2, m/s^2, rad/s^2}
-double dz[] = {.1, .1, .2};       // Deadzone velocity bounds: {m/s, m/s, rad/s}
+double qd_max[] = {5, 5, 20};     // max velocity: {m/s, m/s, rad/s}
+double qdd_max[] = {15, 15, 30};  // max acceleration: {m/s^2, m/s^2, rad/s^2}
+double dz[] = {.3, .3, .3};       // Deadzone velocity bounds: {m/s, m/s, rad/s}
 double qd_d[] = {0, 0, 0};        // desired velocity, to send to planner
 double qdd_d[] = {0, 0, 0};       // desired acceleration
 double input[] = {0, 0, 0};       // hold inputs
@@ -153,8 +153,10 @@ void setup()
   /*
   if(!bno.begin())
   {  
-    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
     while(1);  
+  } else {
+    Serial.println("Successfully connected to IMU");
   }
   delay(100);
   bno.setExtCrystalUse(true);
@@ -194,13 +196,13 @@ void loop()
       }
 
       // compute alpha
-      // euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-      // alpha = euler.x() * pi / 180.0;
-      // Serial.println(euler.x());
-      // delay(50);
+      //imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+      //alpha = euler.x() * pi / 180.0;
+      //Serial.println(alpha);
+      //delay(50);
       
       planner->plan(qd_d[0], qd_d[1], qd_d[2]);
-      // planner->plan_world(qd_d[0], qd_d[1], qd_d[2], alpha);
+      //planner->plan_world(qd_d[0], qd_d[1], qd_d[2], alpha);
 
       // sprintf(buffer, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
       // Serial.println(buffer);
