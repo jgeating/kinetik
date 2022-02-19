@@ -69,7 +69,18 @@ void loop() {
   canTx(  0,          0,   false,        stmp, 8);    
   //canTx(bus select, CAN ID, ext bool, data, length);
   delay(100);
+  Serial.println("******************");
+  Serial.print("CAN receive status (1 = success, 0 = fail): ");
   Serial.println(canRx(1, &rxlMsgID, &rxbExtendedFormat, &cRxData[0], &rxcDataLen));
+  Serial.print("ID: ");
+  Serial.println(rxlMsgID);
+  Serial.print("Data: ");
+  for (int i = 0; i < rxcDataLen; i++){
+    Serial.print(cRxData[i], HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
+  
   delay(500);
 }
 

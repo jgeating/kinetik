@@ -5,14 +5,13 @@
 #define forceMode 0  // Defines if the vehicle will be steered in force control mode 0 = false
 #define numForceSensors 8
 
-
 class Pads
 {
   private:
-    int forcepins[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    int fvolts[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    int forcepins[8] =  {0, 0, 0, 0, 0, 0, 0, 0};
+    int fvolts[8] =     {0, 0, 0, 0, 0, 0, 0, 0};
     int forcezeros[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    double forces[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    double forces[8] =  {0, 0, 0, 0, 0, 0, 0, 0};
     double xgain;
     double ygain;
     double zgain;
@@ -41,6 +40,5 @@ class Pads
     double getXVel();
     double getSpinVel();
 }; 
-
 
 #endif

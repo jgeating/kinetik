@@ -57,6 +57,11 @@ void setup() {
     Serial.print("CAN1: Initialized Successfully.\n\r");
   else
     Serial.print("CAN1: Initialization Failed.\n\r");  
+  if(canInit(1, CAN_BPS_500K) == CAN_OK)
+    Serial.print("CAN1: Initialized Successfully.\n\r");
+  else
+    Serial.print("CAN1: Initialization Failed.\n\r");  
+
 
   delay(1000);    // Give motor time to move
 }
@@ -71,24 +76,22 @@ void loop() {
   // - VECTOR_GRAVITY       - m/s^2
   // check for IMU request from master
   // Check for received message
-  if(canRx(0, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen) == CAN_OK)
-  {
+  //if(canRx(0, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen) == CAN_OK)
+  //{
     // if request was master requesting IMU data (0xA7)
-    if(lMsgID == canID && cRxData[0] == 0xA7)
-    {
+    //if(lMsgID == canID && cRxData[0] == 0xA7)
+    //{
       imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
       
       /* Display the floating point data */
-      /*
+      
       Serial.print("X: ");
       Serial.print(euler.x());
       Serial.print(" Y: ");
       Serial.print(euler.y());
       Serial.print(" Z: ");
       Serial.println(euler.z());
-      */
-      
-      //delay(20);
+      delay(20);
       
       //delayMicroseconds(1000);
       
@@ -102,6 +105,8 @@ void loop() {
       stmp[6] = *((uint8_t *)(&ang));
       stmp[7] = *((uint8_t *)(&ang)+1);
       canTx(0, canID, false, stmp, 8);
-    }
-  }
+      delayMicroseconds(50);
+      canTx(1, canID, false, stmp, 8);
+    //}
+  //}
 }

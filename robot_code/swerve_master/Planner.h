@@ -4,40 +4,44 @@
 // Robot level planning
 class Planner
 {
-  private:
+  private: 
+    // safety, timing, state related
+    int mode;         // mode for what inputs/control algorithm to use
     double dt;        // length of time step, microseconds
 
-    double qd_x_d;    // desired x velocity, m/s
-    double qd_y_d;    // desired y velocity, m/s
-    double qd_z_d;    // desired w velocity, rad/sec
-    double q_z_d;     // desired orientation, rad
+    // Vest related
+    double maxLean;   // max lean angle to scale to target output, rad
+    double in0[3];    // zeros for input angles from IMU(s), rad
+    double input[3];  // input for various control modes, units dependent on control mode
+  
+    // Kinematics/trajectory related 
+    double q[3];      // Current position/orientation, x/y/yaw, m or rad
+    double qd[3];     // Current velocity, m/s or rad/s
+    double qdd[3];    // current acceleration, m/s^2 or rad/s^2
+    double q_d[3];    // desired position, m or rad
+    double qd_d[3];   // desired velocity, m/s or rad/s
+    double qdd_d[3];  // Desired acceleration, m/s^2 or rad/s^2
+    double qd_max[3]; // max velocity allowed, m/s or rad/s
+    double qdd_max[3];// max acceleration allowed, m/s^2 or rad/s^2
+    double dband[3];  // dead band zone, in m/s or rad/s. robot will not move if desired is slower than this 
+    double del_qd_max[3];   // intermediate variable for calculations
 
-    double qd_x;      // current x velocity, m/s
-    double qd_y;      // current y velocity, m/s
-    double qd_z;      // current yaw velocity, rad/sec
-    double q_z;       // current orientation, rad
-
-    double qd_x_max;  // max x velocity allowed, m/sec
-    double qd_y_max;  // max y velocity allowed, m/sec
-    double qd_z_max;  // max yaw velocity allowed, rad/sec
-    double qdd_x_max; // max x acceleration allowed, m/s^2   
-    double qdd_y_max; // max y acceleration allowed, m/s^2
-    double qdd_z_max; // max yaw acceleration allowed, rad/s^2
-
-    double x_dead;  // dead zone in x axis, m/s. Robot will not move if desired is slower than this
-    double y_dead;  // dead zone in y axis, m/s. Robot will not move if desired is slower than this
-    double z_dead;  // dead zone in w axis, m/s. Robot will not move if desired is slower than this
-
-    double del_qd_x_max;
-    double del_qd_y_max;
-    double del_qd_z_max;
-
-    int sign(double x);
-    double lim(double x, double a, double b);
+    // Functions
+    int calcFromAccels();                     // for planning in acceleration control
+    int calcFromVels();                       // main private planning function
+    double sign(double x);                       // returns the sign of the number, either 1 or -1
+    double lim(double x, double a, double b); // arduino contrain port, for doubles 
+    double dewrap(double x);
     
   public:
-    Planner(double dt, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead);
-    void calc(double x_in, double y_in, double z_in);
+    Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead, int mode, double maxLean);
+    
+    // Main functions 
+    int plan(double x_in, double y_in, double z_in);
+
+    // Setters, getters
+    void setMode(int mode);
+    void setZeros(double x_in, double y_in, double z_in);
     double getTargetVX();
     double getTargetVY();
     double getTargetVZ();
