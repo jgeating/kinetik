@@ -115,6 +115,14 @@ int Planner::plan(double x_in, double y_in, double z_in){
   }
 }
 
+int Planner::plan_world(double x_in, double y_in, double z_in, double alpha){
+  double beta = atan2(y_in, x_in);
+  double qd_n = sqrt(y_in*y_in + x_in*x_in);
+  double gamma = alpha + beta;
+
+  return this->plan(qd_n*cos(gamma), qd_n*sin(gamma), z_in);
+}
+
 int Planner::calcFromVels() { 
   double del_qd = 0;  // termporary variable for velocity error 
   double temp = 0;
@@ -127,9 +135,7 @@ int Planner::calcFromVels() {
     del_qd = this->qd_d[i] - this->qd[i]; // velocity error term
     //this->del_qd_max[i] = this->qdd_max[i] * this->dt;
     this->qd[i] = this->qd[i] + this->sign(del_qd) * this->del_qd_max[i]; 
-    this->qd[i] = this->lim(this->qd[i], -1.0*this->qd_max[i], this->qd_max[i]);    
-
-    this->qd[i] = this->input[0]; // REMOVE THIS
+    this->qd[i] = this->lim(this->qd[i], -1.0*this->qd_max[i], this->qd_max[i]);
   }
   return 1;
 }

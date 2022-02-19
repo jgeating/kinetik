@@ -7,7 +7,10 @@
 #include "Yaw.h";         // For controlling steering actuator
 #include "Pads.h";        // For interfacing with weight pads
 #include "Drive.h";       // For controlling drive motors
-#include "Wire.h";        // For accessing native Arduino I2C functions
+#include <Wire.h>;        // For accessing native Arduino I2C functions
+#include "Adafruit_Sensor.h"
+#include "Adafruit_BNO055.h"
+#include "utility/imumaths.h"
 
 const int CHANNEL_PIN[] = {
   24,  // left stick vertical, forward = (+)
@@ -24,6 +27,12 @@ const int CHANNEL_PIN[] = {
 #define YAW_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 #define DEAD_ZONE 0.05
 #define pi 3.14159265358979
+#define BNO055_SAMPLERATE_DELAY_MS (10)
+
+// IMU stuff
+Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28);  // (id, address), default 0x29 or 0x28
+double alpha = 0;
+imu::Vector<3> euler;
 
 // Robot level trajectory/control
 double qd_max[] = {3, 3, 10};     // max velocity: {m/s, m/s, rad/s}
@@ -51,7 +60,7 @@ Kinematics** kinematics = new Kinematics*[nWheels];
 bool calibrated = 0;  // Whether or not the robot has been calibrated
 
 // Loop Timing Variables
-double tInner = 10000;                 // Target length of inner loop controller, microseconds
+double tInner = 2000;                 // Target length of inner loop controller, microseconds
 double tOuter = 50000;                // Target length of outer (second) loop controller, microseconds
 unsigned long lastInner = 0;          // last time counter of inner loop
 unsigned long lastOuter = 0;          // last time counter of outer loop
@@ -140,6 +149,17 @@ void setup()
   attachInterrupt(channels[7]->getPin(), calcCh8, CHANGE);
   Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
 
+  // IMU 
+  /*
+  if(!bno.begin())
+  {  
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while(1);  
+  }
+  delay(100);
+  bno.setExtCrystalUse(true);
+  */
+  
   // Kinematics and path planning setup
   dRatio = pole_pairs * 60 / (2*M_PI) / (.083/2); // used to convert m/s to rpm
   for (int i = 0; i < nWheels; i++) {
@@ -172,10 +192,18 @@ void loop()
         qd_d[k] = constrain(channels[k + 1]->getCh(), -500, 500);
         qd_d[k] = qd_d[k] * qd_max[k] / 500.0; 
       }
-      planner->plan(qd_d[0], qd_d[1], qd_d[2]);
 
-      sprintf(buffer, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
-      Serial.println(buffer);
+      // compute alpha
+      // euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+      // alpha = euler.x() * pi / 180.0;
+      // Serial.println(euler.x());
+      // delay(50);
+      
+      planner->plan(qd_d[0], qd_d[1], qd_d[2]);
+      // planner->plan_world(qd_d[0], qd_d[1], qd_d[2], alpha);
+
+      // sprintf(buffer, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
+      // Serial.println(buffer);
       
     } else if (mode == 1 || mode == 2 || mode == 3) { // IMU modes. 1 = zero, 2 = velocity, 3 = acceleration
       canTx( IMU_bus, canID, false, getEulerCode,   8); 
@@ -210,9 +238,9 @@ void loop()
     qd_d[1] = planner->getTargetVY();
     qd_d[2] = planner->getTargetVZ();
 
-    sprintf(buffer, "Outputs: x: %.3f m/s, y: %.3f m/s, z: %.4 rad/s", qd_d[0], qd_d[1], qd_d[2]);
-    Serial.println(buffer);
-    delay(50);
+    // sprintf(buffer, "Outputs: x: %.3f m/s, y: %.3f m/s, z: %.4f rad/s", qd_d[0], qd_d[1], qd_d[2]);
+    // Serial.println(buffer);
+    // delay(50);
     
 //    Serial.println("Wheel outputs: ");
     for (int i = 0; i < nWheels; i++) {
