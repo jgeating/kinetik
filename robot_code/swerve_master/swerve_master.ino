@@ -8,9 +8,9 @@
 #include "Pads.h";        // For interfacing with weight pads
 #include "Drive.h";       // For controlling drive motors
 #include <Wire.h>;        // For accessing native Arduino I2C functions
-#include "Adafruit_Sensor.h"
-#include "Adafruit_BNO055.h"
-#include "utility/imumaths.h"
+#include "Adafruit_Sensor.h"  // Downloaded library for IMU stuff
+#include "Adafruit_BNO055.h"  // Downloaded library for IMU stuff
+#include "utility/imumaths.h" // Downloaded library for IMU stuff
 
 const int CHANNEL_PIN[] = {
   24,  // left stick vertical, forward = (+)
@@ -25,14 +25,14 @@ const int CHANNEL_PIN[] = {
 
 #define RADIUS_SWERVE_ASSEMBLY 0.25 // distance to wheel swerve axes, meters
 #define YAW_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
-#define DEAD_ZONE 0.05
+#define DEAD_ZONE 0.1
 #define pi 3.14159265358979
 #define BNO055_SAMPLERATE_DELAY_MS (10)
 
 // IMU stuff
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28);  // (id, address), default 0x29 or 0x28
 double alpha = 0;
-//imu::Vector<3> euler;
+imu::Vector<3> euler;
 
 // Robot level trajectory/control
 double qd_max[] = {5, 5, 20};     // max velocity: {m/s, m/s, rad/s}
@@ -69,7 +69,7 @@ bool behind = 0;                      // If Due can't keep up with loop rate, th
 unsigned long timer[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};  // Timers used to measure computation lengths of various functions, loops, etc.
 
 // Modes, safety, e-stop, debug
-char buffer[100]; // String buffer for Serial
+char buff[100]; // String buffer for Serial
 int mode = 0;   //0 = RC mode (teleop), 1 = weight control mode
 int eStop = 0;  // e-stop variable for safety
 bool debugRx = 0;       // whether or not to debug receiver
@@ -149,19 +149,24 @@ void setup()
   attachInterrupt(channels[7]->getPin(), calcCh8, CHANGE);
   Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
 
-  // IMU 
-  /*
+  // IMU
   if(!bno.begin())
-  {  
+  {
     Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-    while(1);  
+    while(1);
   } else {
     Serial.println("Successfully connected to IMU");
   }
   delay(100);
   bno.setExtCrystalUse(true);
-  */
-  
+  delay(100);
+
+  // Compute alpha
+  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  alpha = euler.x() * pi / 180.0;
+  Serial.println(alpha);
+  delay(50);
+
   // Kinematics and path planning setup
   dRatio = pole_pairs * 60 / (2*M_PI) / (.083/2); // used to convert m/s to rpm
   for (int i = 0; i < nWheels; i++) {
@@ -196,7 +201,7 @@ void loop()
       }
 
       // compute alpha
-      //imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+      //euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
       //alpha = euler.x() * pi / 180.0;
       //Serial.println(alpha);
       //delay(50);
@@ -204,8 +209,8 @@ void loop()
       planner->plan(qd_d[0], qd_d[1], qd_d[2]);
       //planner->plan_world(qd_d[0], qd_d[1], qd_d[2], alpha);
 
-      // sprintf(buffer, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
-      // Serial.println(buffer);
+      //sprintf(buff, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
+      //Serial.println(buff);
       
     } else if (mode == 1 || mode == 2 || mode == 3) { // IMU modes. 1 = zero, 2 = velocity, 3 = acceleration
       canTx( IMU_bus, canID, false, getEulerCode,   8); 
@@ -221,8 +226,8 @@ void loop()
             input[0] = x;
             input[1] = y;
             input[2] = z;
-            // sprintf(buffer, "Inputs: x: %.2f°, y: %.2f°, z: %.2f°", x, y, z);
-            // Serial.println(buffer);
+            // sprintf(buff, "Inputs: x: %.2f°, y: %.2f°, z: %.2f°", x, y, z);
+            // Serial.println(buff);
 
             for (int i = 0; i < 3; i++){
               input[i] = input[i] * M_PI / 180; // Convert inputs to radians
@@ -240,8 +245,8 @@ void loop()
     qd_d[1] = planner->getTargetVY();
     qd_d[2] = planner->getTargetVZ();
 
-    // sprintf(buffer, "Outputs: x: %.3f m/s, y: %.3f m/s, z: %.4f rad/s", qd_d[0], qd_d[1], qd_d[2]);
-    // Serial.println(buffer);
+    // sprintf(buff, "Outputs: x: %.3f m/s, y: %.3f m/s, z: %.4f rad/s", qd_d[0], qd_d[1], qd_d[2]);
+    // Serial.println(buff);
     // delay(50);
     
 //    Serial.println("Wheel outputs: ");
@@ -307,19 +312,19 @@ void loop()
     if (debugTiming) {
       Serial.println();
       Serial.println();
-      char buffer[40];
-      sprintf(buffer, "After checking overtiming:        %i usec", timer[1] - timer[0]);
-      Serial.println(buffer);
-      sprintf(buffer, "After getting Rx inputs:          %i usec", timer[2] - timer[0]);
-      Serial.println(buffer);
-      sprintf(buffer, "After calculating kinematics:     %i usec", timer[3] - timer[0]);
-      Serial.println(buffer);
-      sprintf(buffer, "After sending CAN commands:       %i usec", timer[4] - timer[0]);
-      Serial.println(buffer);
-      sprintf(buffer, "After outer loop:                 %i usec", timer[5] - timer[0]);
-      Serial.println(buffer);
-      sprintf(buffer, "After Serial output (debug only): %i usec", micros() - timer[0]);
-      Serial.println(buffer);
+      char buff[40];
+      sprintf(buff, "After checking overtiming:        %i usec", timer[1] - timer[0]);
+      Serial.println(buff);
+      sprintf(buff, "After getting Rx inputs:          %i usec", timer[2] - timer[0]);
+      Serial.println(buff);
+      sprintf(buff, "After calculating kinematics:     %i usec", timer[3] - timer[0]);
+      Serial.println(buff);
+      sprintf(buff, "After sending CAN commands:       %i usec", timer[4] - timer[0]);
+      Serial.println(buff);
+      sprintf(buff, "After outer loop:                 %i usec", timer[5] - timer[0]);
+      Serial.println(buff);
+      sprintf(buff, "After Serial output (debug only): %i usec", micros() - timer[0]);
+      Serial.println(buff);
       delay(20);
     }
   }
