@@ -9,24 +9,34 @@
 // Check I2C device address and correct line below (by default address is 0x29 or 0x28)
 //                                   id, address  
 Adafruit_BNO055 bno =  Adafruit_BNO055(-1, 0x28);
+//Adafruit_BNO055 bno2 =  Adafruit_BNO055(-1, 0x28);
 
 void setup() {
   // Setup serial
   Serial.begin(115200);
   Serial.println("Starting up...");
   pinMode(13, OUTPUT);
+  //pinMode(5, OUTPUT);
+  //digitalWrite(5, HIGH);  // Set address of IMU to high
   //analogReadResolution(anRes);
 
   if(!bno.begin())
   {
-    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    Serial.println("BNO055 #1 failed to connect");
+  } else {
+    Serial.println("Succeeded connecting to BNO055 #1");
   }
   delay(100);
-  
   bno.setExtCrystalUse(true);
 
-
-  delay(1000);    // Give motor time to move
+  // Set up #2
+//  if(!bno2.begin()) {
+//    Serial.println("BNO055 #2 failed to connect");
+//  } else {
+//    Serial.println("Succeeded connecting to BNO055 #2");
+//  }
+//  delay(100);
+//  bno2.setExtCrystalUse(true);
 }
 
 void loop() {

@@ -10,14 +10,14 @@
 #include "Wire.h";        // For accessing native Arduino I2C functions
 
 const int CHANNEL_PIN[] = {
-  24,  // left stick vertical, forward = (+)
-  25,  // right stick horizontal, R = (+)
-  26,  // right stick vertical, forward = (+)
-  27,  // left stick horizontal, R = (+)
-  28,  // left knob, CW = (+)
-  29,  // right knob, CW = (+)
-  30,  // left switch, backwards = (-)
-  31   // right switch, backwards = (-)
+  38,  // ch. 1 left stick vertical, forward = (+)
+  40,  // ch. 2 right stick horizontal, R = (+)
+  42,  // ch. 3 right stick vertical, forward = (+)
+  44,  // ch. 4 left stick horizontal, R = (+)
+  46,  // ch. 5 left knob, CW = (+)
+  48,  // ch. 6 right knob, CW = (+)
+  50,  // ch. 7 left switch, backwards = (-)
+  52   // ch. 8 right switch, backwards = (-)
 };
 
 // PWM/Receiver stuff

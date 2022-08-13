@@ -47,7 +47,7 @@ Planner* planner;
 double x = 0; // x angle of imu vest
 double y = 0; // y angle of imu vest
 double z = 0; // z angle of imu vest
-double maxLean = M_PI/8;          // max lean angle, to scale to output
+double maxLean = M_PI / 8;        // max lean angle, to scale to output
 unsigned char getEulerCode[8] = {0xA7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 int canID = 22;
 int IMU_bus = 1;
@@ -133,12 +133,16 @@ void setup()
   else Serial.print("CAN0: Initialization Failed.\n\r");
   if (canInit(1, CAN_BPS_500K) == CAN_OK) Serial.print("CAN1: Initialized Successfully.\n\r");
   else Serial.print("CAN1: Initialization Failed.\n\r");
-  for (int i = 0; i < 4; i++){ pinMode(irPin[i], INPUT); }
+  for (int i = 0; i < 4; i++) {
+    pinMode(irPin[i], INPUT);
+  }
   pinMode(13, OUTPUT); digitalWrite(13, LOW); // Set up indicator LED
   Serial.println("CAN and Pins initialized. Initializing RC interrupts...");
 
   // RC PWM interrupt setup
-  for (int i = 0; i < chs; i++) { channels[i] = new Channel(CHANNEL_PIN[i], chOff[i]); }
+  for (int i = 0; i < chs; i++) {
+    channels[i] = new Channel(CHANNEL_PIN[i], chOff[i]);
+  }
   attachInterrupt(channels[0]->getPin(), calcCh1, CHANGE);
   attachInterrupt(channels[1]->getPin(), calcCh2, CHANGE);
   attachInterrupt(channels[2]->getPin(), calcCh3, CHANGE);
@@ -149,26 +153,27 @@ void setup()
   attachInterrupt(channels[7]->getPin(), calcCh8, CHANGE);
   Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
 
-  // IMU
-  if(!bno.begin())
-  {
-    Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-    while(1);
-  } else {
-    Serial.println("Successfully connected to IMU");
-  }
-  delay(100);
-  bno.setExtCrystalUse(true);
-  delay(100);
+  //  IMU
+  // Serial.println("Setting up IMU...");
+  // if (!bno.begin())
+  // {
+  //   Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+  //   while (1);
+  // } else {
+  //   Serial.println("Successfully connected to IMU");
+  // }
+  // delay(100);
+  // bno.setExtCrystalUse(true);
+  // delay(100);
 
   // Compute alpha
-  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-  alpha = euler.x() * pi / 180.0;
-  Serial.println(alpha);
-  delay(50);
+  // imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  // alpha = euler.x() * pi / 180.0;
+  // Serial.println(alpha);
+  // delay(50);
 
   // Kinematics and path planning setup
-  dRatio = pole_pairs * 60 / (2*M_PI) / (.083/2); // used to convert m/s to rpm
+  dRatio = pole_pairs * 60 / (2 * M_PI) / (.083 / 2); // used to convert m/s to rpm
   for (int i = 0; i < nWheels; i++) {
     irPos[i] = irPos[i];    // Correcting for polar coordinate frame
     yaw[i] = new Yaw(wMaxYaw, aMaxYaw, yRatio, tInner, len, i);
@@ -193,43 +198,43 @@ void loop()
       behind = true;
     }
 
-    //***************BEGIN INNER LOOP*******************
+    //***************BEGIN FAST LOOP*******************
     if (mode == 0) { // tele-op mode
       for (int k = 0; k < 3; k++) {
         qd_d[k] = constrain(channels[k + 1]->getCh(), -500, 500);
-        qd_d[k] = qd_d[k] * qd_max[k] / 500.0; 
+        qd_d[k] = qd_d[k] * qd_max[k] / 500.0;
       }
 
       // compute alpha
-      //euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-      //alpha = euler.x() * pi / 180.0;
-      //Serial.println(alpha);
-      //delay(50);
-      
+      // euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+      // alpha = euler.x() * pi / 180.0;
+      // Serial.println(alpha);
+      // delay(50);
+
       planner->plan(qd_d[0], qd_d[1], qd_d[2]);
       //planner->plan_world(qd_d[0], qd_d[1], qd_d[2], alpha);
 
       //sprintf(buff, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
       //Serial.println(buff);
-      
+
     } else if (mode == 1 || mode == 2 || mode == 3) { // IMU modes. 1 = zero, 2 = velocity, 3 = acceleration
-      canTx( IMU_bus, canID, false, getEulerCode,   8); 
+      canTx( IMU_bus, canID, false, getEulerCode,   8);
       delayMicroseconds(100);
       bool buffed = 1;
-      while (buffed){
-        if(canRx(IMU_bus, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen) == CAN_OK){
-          if(lMsgID == canID){
+      while (buffed) {
+        if (canRx(IMU_bus, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen) == CAN_OK) {
+          if (lMsgID == canID) {
             int16_t temp = (int16_t)(cRxData[0] + (cRxData[1] << 8));
-            z =  (double)((int16_t)(cRxData[2] + (cRxData[3] << 8)))/100.0;   
-            x = -(double)((int16_t)(cRxData[4] + (cRxData[5] << 8)))/100.0;
-            y =  (double)((int16_t)(cRxData[6] + (cRxData[7] << 8)))/100.0;
+            z =  (double)((int16_t)(cRxData[2] + (cRxData[3] << 8))) / 100.0;
+            x = -(double)((int16_t)(cRxData[4] + (cRxData[5] << 8))) / 100.0;
+            y =  (double)((int16_t)(cRxData[6] + (cRxData[7] << 8))) / 100.0;
             input[0] = x;
             input[1] = y;
             input[2] = z;
             // sprintf(buff, "Inputs: x: %.2f°, y: %.2f°, z: %.2f°", x, y, z);
             // Serial.println(buff);
 
-            for (int i = 0; i < 3; i++){
+            for (int i = 0; i < 3; i++) {
               input[i] = input[i] * M_PI / 180; // Convert inputs to radians
             }
             planner->plan(input[0], input[1], input[2]);
@@ -248,13 +253,13 @@ void loop()
     // sprintf(buff, "Outputs: x: %.3f m/s, y: %.3f m/s, z: %.4f rad/s", qd_d[0], qd_d[1], qd_d[2]);
     // Serial.println(buff);
     // delay(50);
-    
-//    Serial.println("Wheel outputs: ");
+
+    //    Serial.println("Wheel outputs: ");
     for (int i = 0; i < nWheels; i++) {
       kinematics[i]->calc(qd_d[0], qd_d[1], qd_d[2]*sign(yRatio));
-//      Serial.print(kinematics[i]->getTargetYaw());
-//      Serial.print(", ");
-//      Serial.println(kinematics[i]->getTargetVel());
+      //      Serial.print(kinematics[i]->getTargetYaw());
+      //      Serial.print(", ");
+      //      Serial.println(kinematics[i]->getTargetVel());
     }
     //delay(30);
 
@@ -271,7 +276,7 @@ void loop()
 
   if (now - lastOuter > tOuter) {
     lastOuter = lastOuter + tOuter;
-    //***********************BEGIN OUTER LOOP*******************************
+    //***********************BEGIN SLOW LOOP*******************************
     checkRx();                          // check if receiver signal has been lost
 
     // Check channels, modes
@@ -338,7 +343,7 @@ void calMotor() {
     yaw[j]->setHoming(2);               // set homing mode to true for all axes
     yaw[j]->motTo(0, channels[estop_ch]->getCh(), rcLost);
   }
-  delay(750); // Give motor time to move to zero position if it is wound up 
+  delay(750); // Give motor time to move to zero position if it is wound up
   double fineTune = 1;    // to step in less than 1 deg increments - this is the ratio (0.2 would be in 0.2 degree increments
   double angTarget = 0;
   for (int i = 0; i < (int)(360 * abs(yRatio) * 1.5 / fineTune); i++) {
