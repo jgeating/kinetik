@@ -48,10 +48,11 @@ void setup() {
 }
 
 void loop() {
+  Serial.println("******************");
   for (int i = 0; i < 8; i++){
     Serial.println(channels[i]->getCh());
   }
-  delay(100);
+  delay(50);
 }
 
 // ***********************2.4 GHz RECEIVER  FUNCTIONS

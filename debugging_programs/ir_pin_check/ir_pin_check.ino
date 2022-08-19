@@ -1,4 +1,4 @@
-int ir_pins[4] = {35, 34, 33, 32};
+int ir_pins[4] = {22, 24, 26, 28};
 int n = 4;
 
 void setup() {

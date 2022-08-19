@@ -13,14 +13,14 @@
 #include "utility/imumaths.h" // Downloaded library for IMU stuff
 
 const int CHANNEL_PIN[] = {
-  24,  // left stick vertical, forward = (+)
-  25,  // right stick horizontal, R = (+)
-  26,  // right stick vertical, forward = (+)
-  27,  // left stick horizontal, R = (+)
-  28,  // left knob, CW = (+)
-  29,  // right knob, CW = (+)
-  30,  // left switch, backwards = (-)
-  31   // right switch, backwards = (-)
+  38,  // left stick vertical, forward = (+)
+  40,  // right stick horizontal, R = (+)
+  42,  // right stick vertical, forward = (+)
+  44,  // left stick horizontal, R = (+)
+  46,  // left knob, CW = (+)
+  48,  // right knob, CW = (+)
+  50,  // left switch, backwards = (-)
+  52   // right switch, backwards = (-)
 };
 
 #define RADIUS_SWERVE_ASSEMBLY 0.25 // distance to wheel swerve axes, meters
@@ -112,8 +112,7 @@ int mode_ch = 7;                    // which Rx channel is used for setting mode
 int ir[] = {0, 0, 0, 0};            // status of IR sensor
 //looking from bottom, (+) to offset rotates wheel CCW
 double irPos[] = {254, 84, 73, 257};     // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
-// 8/8/2021 values were 158, 347, 342, 171
-int irPin[] = {35, 34, 33, 32};       // pins that ir sensors are hooked up to
+int irPin[] = {22, 24, 26, 28};       // pins that ir sensors are hooked up to
 double mRPM[] = {0, 0, 0, 0};         // Speed of drive motors (pre gear stage). In eRPM, I think...
 double yRatio = YAW_GEAR_RATIO;       // Yaw pulley stage ratio, >1
 int motPol[] = {1, 1, 1, 1};          // Used to switch motor direction depending on VESC configuration. Not implemented yet due to datatype issues. Just changing VESC parameters instead
