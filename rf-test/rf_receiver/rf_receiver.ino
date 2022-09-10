@@ -25,8 +25,10 @@ void setup() {
 
 void loop() {
   if (radio.available()) {
-    char text[32] = "";
-    radio.read(&text, sizeof(text));
-    Serial.println(text);
+    float data[2] = {0,0};
+    radio.read(&data, sizeof(data));
+    // Serial.println(text);
+    Serial.write(data);
   }
+
 }
