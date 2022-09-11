@@ -141,15 +141,13 @@ void setup()
   // RC PWM interrupt setup
   for (int i = 0; i < chs; i++) {
     channels[i] = new Channel(CHANNEL_PIN[i], chOff[i]);
+    attachInterrupt(
+      channels[i]->getPin(),
+      []{ channels[i]->calc(); }, 
+      CHANGE
+    );
   }
-  attachInterrupt(channels[0]->getPin(), calcCh1, CHANGE);
-  attachInterrupt(channels[1]->getPin(), calcCh2, CHANGE);
-  attachInterrupt(channels[2]->getPin(), calcCh3, CHANGE);
-  attachInterrupt(channels[3]->getPin(), calcCh4, CHANGE);
-  attachInterrupt(channels[4]->getPin(), calcCh5, CHANGE);
-  attachInterrupt(channels[5]->getPin(), calcCh6, CHANGE);
-  attachInterrupt(channels[6]->getPin(), calcCh7, CHANGE);
-  attachInterrupt(channels[7]->getPin(), calcCh8, CHANGE);
+
   Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
 
   //  IMU
@@ -400,30 +398,4 @@ void rxMsg() {
       rxData |=  cRxData[i];
     }
   }
-}
-
-// ***********************2.4 GHz RECEIVER  FUNCTIONS
-void calcCh1() {
-  channels[0]->calc();
-}
-void calcCh2() {
-  channels[1]->calc();
-}
-void calcCh3() {
-  channels[2]->calc();
-}
-void calcCh4() {
-  channels[3]->calc();
-}
-void calcCh5() {
-  channels[4]->calc();
-}
-void calcCh6() {
-  channels[5]->calc();
-}
-void calcCh7() {
-  channels[6]->calc();
-}
-void calcCh8() {
-  channels[7]->calc();
 }
