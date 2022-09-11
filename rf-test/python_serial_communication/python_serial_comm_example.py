@@ -1,18 +1,18 @@
 import serial
 import time
-arduino = serial.Serial(port='COM3', baudrate=9600, timeout=.1)
-def write_read(x):
-    arduino.write(bytes(x, 'utf-8'))
-    time.sleep(0.05)
-    
-    data = arduino.readline()
-    return data
+import struct
+
+arduino = serial.Serial(port='COM4', baudrate=9600, timeout=.1)
+
 while True:
     # arduino.read_until('start')
     # data = arduino.read_until('end')
     data = arduino.readline()
-
-    # num = input("Enter a number: ") # Taking input from user
-    # value = write_read(num)
-    print(str(data).split(' '))
-    print(str(data)) # printing the value
+    # data = arduino.read(4)
+    print(data)
+    # print(str(data).split(' '))
+    if data != b'':
+        # [a, b] = data.split(' ')
+        # print(data.decode())
+        [x] = struct.unpack('f', a)
+        print(x) # printing the value
