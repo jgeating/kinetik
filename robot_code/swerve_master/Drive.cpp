@@ -44,7 +44,7 @@ void Drive::setVel(double vel, int ch, int rcLost){//vel is in erpm
   for (int m = 0; m < len; m++) {
     this->cTxData1[len - m -1] = (int)(vel*dRatio) >> 8 * m;
   }
-  int idd = this->mot+1 | CAN_PACKET_SET_RPM << 8;  // 6/22/2021, added +1 because I indexed at 1, not 0
+  int idd = this->mot | CAN_PACKET_SET_RPM << 8;
   if (ch > 400 && !rcLost){ // Only send motor if safety channel is in the correct range, and rc signal is present
     canTx(1, idd, ext, this->cTxData1, len);
   }

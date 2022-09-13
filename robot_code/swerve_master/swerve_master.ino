@@ -35,7 +35,7 @@ double alpha = 0;
 imu::Vector<3> euler;
 
 // Robot level trajectory/control
-double qd_max[] = {5, 5, 20};     // max velocity: {m/s, m/s, rad/s}
+double qd_max[] = {5, 5, 15};     // max velocity: {m/s, m/s, rad/s}
 double qdd_max[] = {15, 15, 30};  // max acceleration: {m/s^2, m/s^2, rad/s^2}
 double dz[] = {.3, .3, .3};       // Deadzone velocity bounds: {m/s, m/s, rad/s}
 double qd_d[] = {0, 0, 0};        // desired velocity, to send to planner
@@ -60,7 +60,7 @@ Kinematics** kinematics = new Kinematics*[nWheels];
 bool calibrated = 0;  // Whether or not the robot has been calibrated
 
 // Loop Timing Variables
-double tInner = 2000;                 // Target length of inner loop controller, microseconds
+double tInner = 3000;                 // Target length of inner loop controller, microseconds
 double tOuter = 50000;                // Target length of outer (second) loop controller, microseconds
 unsigned long lastInner = 0;          // last time counter of inner loop
 unsigned long lastOuter = 0;          // last time counter of outer loop
@@ -111,7 +111,7 @@ int mode_ch = 7;                    // which Rx channel is used for setting mode
 // Robot state stuff
 int ir[] = {0, 0, 0, 0};            // status of IR sensor
 //looking from bottom, (+) to offset rotates wheel CCW
-double irPos[] = {254, 84, 73, 257};     // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
+double irPos[] = {254-180, 84+180, 73+180, 257-180};     // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
 int irPin[] = {22, 24, 26, 28};       // pins that ir sensors are hooked up to
 double mRPM[] = {0, 0, 0, 0};         // Speed of drive motors (pre gear stage). In eRPM, I think...
 double yRatio = YAW_GEAR_RATIO;       // Yaw pulley stage ratio, >1
@@ -153,23 +153,23 @@ void setup()
   Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
 
   //  IMU
-  // Serial.println("Setting up IMU...");
-  // if (!bno.begin())
-  // {
-  //   Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-  //   while (1);
-  // } else {
-  //   Serial.println("Successfully connected to IMU");
-  // }
-  // delay(100);
-  // bno.setExtCrystalUse(true);
-  // delay(100);
+  Serial.println("Setting up IMU...");
+  if (!bno.begin())
+  {
+     Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+     while (1);
+   } else {
+     Serial.println("Successfully connected to IMU");
+   }
+   delay(100);
+   bno.setExtCrystalUse(true);
+   delay(100);
 
   // Compute alpha
-  // imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-  // alpha = euler.x() * pi / 180.0;
-  // Serial.println(alpha);
-  // delay(50);
+   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+   alpha = euler.x() * pi / 180.0;
+   Serial.println(alpha);
+   delay(50);
 
   // Kinematics and path planning setup
   dRatio = pole_pairs * 60 / (2 * M_PI) / (.083 / 2); // used to convert m/s to rpm
@@ -196,22 +196,26 @@ void loop()
       lastInner = lastInner + tInner;
       behind = true;
     }
-
+     
     //***************BEGIN FAST LOOP*******************
     if (mode == 0) { // tele-op mode
       for (int k = 0; k < 3; k++) {
         qd_d[k] = constrain(channels[k + 1]->getCh(), -500, 500);
-        qd_d[k] = qd_d[k] * qd_max[k] / 500.0;
+        qd_d[k] = qd_d[k] / 500.0;
+        qd_d[k] = qd_d[k];  // add square law etc. here
+        qd_d[k] = qd_d[k] * qd_max[k];
       }
-
+      
       // compute alpha
-      // euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-      // alpha = euler.x() * pi / 180.0;
-      // Serial.println(alpha);
-      // delay(50);
+      timer[1] = micros();
+      euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+      alpha = euler.x() * pi / 180.0;
+      timer[2] = micros();
+//      Serial.println(alpha);
+//      delay(50);
 
-      planner->plan(qd_d[0], qd_d[1], qd_d[2]);
-      //planner->plan_world(qd_d[0], qd_d[1], qd_d[2], alpha);
+//      planner->plan(qd_d[0], qd_d[1], qd_d[2]);
+      planner->plan_world(qd_d[0], qd_d[1], qd_d[2], alpha);
 
       //sprintf(buff, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
       //Serial.println(buff);
@@ -317,11 +321,11 @@ void loop()
       Serial.println();
       Serial.println();
       char buff[40];
-      sprintf(buff, "After checking overtiming:        %i usec", timer[1] - timer[0]);
+      sprintf(buff, "prior to imu poll:                %i usec", timer[1] - timer[0]);
       Serial.println(buff);
-      sprintf(buff, "After getting Rx inputs:          %i usec", timer[2] - timer[0]);
+      sprintf(buff, "After IMU poll:                   %i usec", timer[2] - timer[0]);
       Serial.println(buff);
-      sprintf(buff, "After calculating kinematics:     %i usec", timer[3] - timer[0]);
+      sprintf(buff, "unused:                          %i usec", timer[3] - timer[0]);
       Serial.println(buff);
       sprintf(buff, "After sending CAN commands:       %i usec", timer[4] - timer[0]);
       Serial.println(buff);
