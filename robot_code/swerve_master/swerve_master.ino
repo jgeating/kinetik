@@ -35,7 +35,7 @@ double alpha = 0;
 imu::Vector<3> euler;
 
 // Robot level trajectory/control
-double qd_max[] = {5, 5, 15};     // max velocity: {m/s, m/s, rad/s}
+double qd_max[] = {30, 30, 30};     // max velocity: {m/s, m/s, rad/s}
 double qdd_max[] = {15, 15, 30};  // max acceleration: {m/s^2, m/s^2, rad/s^2}
 double dz[] = {.3, .3, .3};       // Deadzone velocity bounds: {m/s, m/s, rad/s}
 double qd_d[] = {0, 0, 0};        // desired velocity, to send to planner
@@ -201,9 +201,10 @@ void loop()
     if (mode == 0) { // tele-op mode
       for (int k = 0; k < 3; k++) {
         qd_d[k] = constrain(channels[k + 1]->getCh(), -500, 500);
-        qd_d[k] = qd_d[k] / 500.0;
-        qd_d[k] = qd_d[k];  // add square law etc. here
-        qd_d[k] = qd_d[k] * qd_max[k];
+        qd_d[k] = qd_d[k] * qd_max[k] / 500.0;
+        if ( k < 2 ) {
+          qd_d[k] = qd_d[k] * float(constrain(channels[0]->getCh(), -500, 500)/1000.0 + 0.5);    // Scale up to max velocity using left stick vertical (throttle, no spring center)
+        }
       }
       
       // compute alpha
@@ -269,7 +270,7 @@ void loop()
     for (int i = 0; i < nWheels; i++) {
       yaw[i]->yawTo(kinematics[i]->getTargetYaw(), channels[estop_ch]->getCh(), rcLost);
       delayMicroseconds(steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
-      drive[i]->slewVel(kinematics[i]->getTargetVel(), channels[estop_ch]->getCh(), rcLost);
+      drive[i]->setVel(kinematics[i]->getTargetVel(), channels[estop_ch]->getCh(), rcLost);
       delayMicroseconds(driveCanDelay);
     }
     timer[4] = micros();
