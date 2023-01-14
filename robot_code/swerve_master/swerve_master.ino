@@ -25,7 +25,6 @@ const int CHANNEL_PIN[] = {
 };
 
 #define RADIUS_SWERVE_ASSEMBLY 0.25 // distance to wheel swerve axes, meters
-#define YAW_GEAR_RATIO -18          // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 #define DEAD_ZONE 0.1
 #define pi 3.14159265358979
 #define BNO055_SAMPLERATE_DELAY_MS (10)
@@ -42,12 +41,7 @@ SwerveKinematics swerveKinematics;
 LoopTiming loopTiming;
 
 // Modes, safety, e-stop, debug
-char buff[100];       // String buffer for Serial
-int mode = 0;         // 0 = RC mode (teleop), 1 = weight control mode
-int eStop = 0;        // e-stop variable for safety
-bool debugRx = 0;     // whether or not to debug receiver
-bool debugTiming = 0; // whether or not to debug timing, look at loop lengths, etc.
-bool debugRiding = 0;
+Modes modes;
 
 // CAN Stuff for drive motors
 extern byte canInit(byte cPort, long lBaudRate);
@@ -55,18 +49,8 @@ extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte *cData, by
 extern byte canRx(byte cPort, long *lMsgID, bool *bExtendedFormat, byte *cData, byte *cDataLen);
 SwerveCAN can;
 
-// PWM/Receiver stuff
-PWMReceiver pwmReceiver;
-
-// Robot state stuff
-int ir[] = {0, 0, 0, 0}; // status of IR sensor
-// looking from bottom, (+) to offset rotates wheel CCW
-double irPos[] = {254 - 180, 84 + 180, 73 + 180, 257 - 180}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
-int irPin[] = {22, 24, 26, 28};                              // pins that ir sensors are hooked up to
-double mRPM[] = {0, 0, 0, 0};                                // Speed of drive motors (pre gear stage). In eRPM, I think...
-double yRatio = YAW_GEAR_RATIO;                              // Yaw pulley stage ratio, >1
-int motPol[] = {1, 1, 1, 1};                                 // Used to switch motor direction depending on VESC configuration. Not implemented yet due to datatype issues. Just changing VESC parameters instead
-
+PWMReceiver pwmReceiver; // PWM/Receiver stuff
+RobotState robotState;
 Drive **drive = new Drive *[swerveKinematics.nWheels];
 Yaw **yaw = new Yaw *[swerveKinematics.nWheels];
 double aMaxYaw = 5000;  // Max angular acceleration of yaw motor, in motor frame, rad/s^2. Safe starting value: 5000
@@ -88,7 +72,7 @@ void setup()
     Serial.print("CAN1: Initialization Failed.\n\r");
   for (int i = 0; i < 4; i++)
   {
-    pinMode(irPin[i], INPUT);
+    pinMode(robotState.irPin[i], INPUT);
   }
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW); // Set up indicator LED
@@ -135,12 +119,12 @@ void setup()
   swerveKinematics.dRatio = swerveKinematics.pole_pairs * 60 / (2 * M_PI) / (.083 / 2); // used to convert m/s to rpm
   for (int i = 0; i < swerveKinematics.nWheels; i++)
   {
-    irPos[i] = irPos[i]; // Correcting for polar coordinate frame
-    yaw[i] = new Yaw(wMaxYaw, aMaxYaw, yRatio, loopTiming.tInner, can.len, i);
+    robotState.irPos[i] = robotState.irPos[i]; // Correcting for polar coordinate frame
+    yaw[i] = new Yaw(wMaxYaw, aMaxYaw, robotState.yRatio, loopTiming.tInner, can.len, i);
     drive[i] = new Drive(swerveTrajectory.qd_max[0], swerveTrajectory.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i);
     swerveKinematics.kinematics[i] = new Kinematics(RADIUS_SWERVE_ASSEMBLY, DEAD_ZONE, i);
   }
-  planner = new Planner(loopTiming.tInner, swerveTrajectory.qd_max[0], swerveTrajectory.qd_max[1], swerveTrajectory.qd_max[2], swerveTrajectory.qdd_max[0], swerveTrajectory.qdd_max[1], swerveTrajectory.qdd_max[2], swerveTrajectory.dz[0], swerveTrajectory.dz[1], swerveTrajectory.dz[2], mode, swerveImu.maxLean);
+  planner = new Planner(loopTiming.tInner, swerveTrajectory.qd_max[0], swerveTrajectory.qd_max[1], swerveTrajectory.qd_max[2], swerveTrajectory.qdd_max[0], swerveTrajectory.qdd_max[1], swerveTrajectory.qdd_max[2], swerveTrajectory.dz[0], swerveTrajectory.dz[1], swerveTrajectory.dz[2], modes.mode, swerveImu.maxLean);
   Serial.println("Startup Complete.");
 }
 
@@ -163,7 +147,7 @@ void loop()
     }
 
     //***************BEGIN FAST LOOP*******************
-    if (mode == 0)
+    if (modes.mode == 0)
     { // tele-op mode
       for (int k = 0; k < 3; k++)
       {
@@ -189,7 +173,7 @@ void loop()
       // sprintf(buff, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
       // Serial.println(buff);
     }
-    else if (mode == 1 || mode == 2 || mode == 3)
+    else if (modes.mode == 1 || modes.mode == 2 || modes.mode == 3)
     { // IMU modes. 1 = zero, 2 = velocity, 3 = acceleration
       canTx(swerveImu.IMU_bus, swerveImu.canID, false, swerveImu.getEulerCode, 8);
       delayMicroseconds(100);
@@ -236,7 +220,7 @@ void loop()
     //    Serial.println("Wheel outputs: ");
     for (int i = 0; i < swerveKinematics.nWheels; i++)
     {
-      swerveKinematics.kinematics[i]->calc(swerveTrajectory.qd_d[0], swerveTrajectory.qd_d[1], swerveTrajectory.qd_d[2] * sign(yRatio));
+      swerveKinematics.kinematics[i]->calc(swerveTrajectory.qd_d[0], swerveTrajectory.qd_d[1], swerveTrajectory.qd_d[2] * sign(robotState.yRatio));
       //      Serial.print(kinematics[i]->getTargetYaw());
       //      Serial.print(", ");
       //      Serial.println(kinematics[i]->getTargetVel());
@@ -276,36 +260,36 @@ void loop()
     }
     if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < -300)
     { // default mode is tele-op, blue stick top position
-      mode = 0;
+      modes.mode = 0;
       planner->setMode(0);
-      eStop = 0; // Also disable e-stop if tripped
+      modes.eStop = 0; // Also disable e-stop if tripped
     }
     if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > -300 && pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < 300)
     { // IMU zeroing mode
-      mode = 1;
+      modes.mode = 1;
       planner->setMode(1);
     }
     if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300)
     { // riding mode, blue stick down position
-      mode = 2;
+      modes.mode = 2;
       planner->setMode(2);
     }
     loopTiming.timer[5] = micros();
 
     // Debug related
-    if (debugRiding)
+    if (modes.debugRiding)
     {
       Serial.println("***********");
       Serial.println(swerveTrajectory.qd_d[0]);
       Serial.println(swerveTrajectory.qd_d[1]);
       delay(20);
     }
-    if (debugRx)
+    if (modes.debugRx)
     {
       // printChannels(); // printChannels() has been deleted
       delay(20);
     }
-    if (debugTiming)
+    if (modes.debugTiming)
     {
       Serial.println();
       Serial.println();
@@ -340,20 +324,20 @@ void calMotor(SwerveCAN &can)
   delay(750);          // Give motor time to move to zero position if it is wound up
   double fineTune = 1; // to step in less than 1 deg increments - this is the ratio (0.2 would be in 0.2 degree increments
   double angTarget = 0;
-  for (int i = 0; i < (int)(360 * abs(yRatio) * 1.5 / fineTune); i++)
+  for (int i = 0; i < (int)(360 * abs(robotState.yRatio) * 1.5 / fineTune); i++)
   {
     checkRx();
     for (int j = 0; j < swerveKinematics.nWheels; j++)
     {
       angTarget = i * fineTune;
       can.pos = i * fineTune;
-      if (yaw[j]->getHoming() == 2 && digitalRead(irPin[j]) == 1)
+      if (yaw[j]->getHoming() == 2 && digitalRead(robotState.irPin[j]) == 1)
       { // calibration started with IR triggered
         yaw[j]->setHoming(1);
       }
-      if (yaw[j]->getHoming() == 1 && digitalRead(irPin[j]) == 0)
+      if (yaw[j]->getHoming() == 1 && digitalRead(robotState.irPin[j]) == 0)
       { // Hit target fresh
-        yaw[j]->setYaw(irPos[j]);
+        yaw[j]->setYaw(robotState.irPos[j]);
         yaw[j]->setMPos(can.pos);
         yaw[j]->setHoming(0);
       }

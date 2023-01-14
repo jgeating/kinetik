@@ -3,6 +3,9 @@
 
 #include "Kinematics.h"; // wheel level kinematics/trigonometry
 
+#define YAW_GEAR_RATIO -18          // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
+
+
 struct SwerveImu
 {
   double x = 0;              // x angle of imu vest
@@ -72,13 +75,36 @@ struct SwerveCAN
 // PWM/Receiver stuff
 struct PWMReceiver
 {
-  short chs = 8;                                                    // number of channels to read from receiver
+  short chs = 8;                                                     // number of channels to read from receiver
   short chOff[8] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500}; // Channel offsets (calibrate to find these)
   Channel **channels = new Channel *[chs];
   int rcTimeout = 100000; // number of microseconds before receiver timeout is tripped - make sure it is a good bit longer than 2000 microseconds
   bool rcLost = 1;        // This is set to true if no receiver signal is received within the rcTimeout timeframe (microseconds)
   int estop_ch = 6;       // which Rx channel is used for motor enabling/SW e-stop. 0 index
   int mode_ch = 7;        // which Rx channel is used for setting mode
+};
+
+// Modes, safety, e-stop, debug
+struct Modes
+{
+  char buff[100];       // String buffer for Serial
+  int mode = 0;         // 0 = RC mode (teleop), 1 = weight control mode
+  int eStop = 0;        // e-stop variable for safety
+  bool debugRx = 0;     // whether or not to debug receiver
+  bool debugTiming = 0; // whether or not to debug timing, look at loop lengths, etc.
+  bool debugRiding = 0;
+};
+
+// Robot state stuff
+struct RobotState
+{
+  int ir[4] = {0, 0, 0, 0}; // status of IR sensor
+  // looking from bottom, (+) to offset rotates wheel CCW
+  double irPos[4] = {254 - 180, 84 + 180, 73 + 180, 257 - 180}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
+  int irPin[4] = {22, 24, 26, 28};                              // pins that ir sensors are hooked up to
+  double mRPM[4] = {0, 0, 0, 0};                                // Speed of drive motors (pre gear stage). In eRPM, I think...
+  double yRatio = YAW_GEAR_RATIO;                              // Yaw pulley stage ratio, >1
+  int motPol[4] = {1, 1, 1, 1};                                 // Used to switch motor direction depending on VESC configuration. Not implemented yet due to datatype issues. Just changing VESC parameters instead
 };
 
 #endif
