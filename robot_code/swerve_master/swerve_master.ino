@@ -28,9 +28,11 @@ const int CHANNEL_PIN[] = {
 #define DEAD_ZONE 0.1
 #define pi 3.14159265358979
 #define BNO055_SAMPLERATE_DELAY_MS (10)
+#define TELEMETRY_REPORT_PERIOD 500000
 
 // IMU stuff
-Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28); // (id, address), default 0x29 or 0x28
+Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);     // (id, address), default 0x29 or 0x28
+Adafruit_BNO055 bnoVest = Adafruit_BNO055(-1, 0x28); // (id, address), default 0x29 or 0x28
 double alpha = 0;
 imu::Vector<3> euler;
 
@@ -57,6 +59,8 @@ double aMaxYaw = 5000;  // Max angular acceleration of yaw motor, in motor frame
 double wMaxYaw = 10000; // Max angular velocity of yaw motor, in motor frame, rad/s. Safe starting value: 10000
 int doneHoming = 0;     // Used to determine when calibration sequence is finished. 1 = finished.
 
+unsigned long prevTelemetryReportTime = 0;
+
 void setup()
 {
   // Serial and CAN setup
@@ -76,6 +80,8 @@ void setup()
   }
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW); // Set up indicator LED
+  pinMode(5, OUTPUT);
+  digitalWrite(5, HIGH); // Set address of Vest IMU to high
   Serial.println("CAN and Pins initialized. Initializing RC interrupts...");
 
   // RC PWM interrupt setup
@@ -94,18 +100,9 @@ void setup()
   Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
 
   //  IMU
-  Serial.println("Setting up IMU...");
-  if (!bno.begin())
-  {
-    Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-    while (1)
-      ;
-  }
-  else
-  {
-    Serial.println("Successfully connected to IMU");
-  }
-  delay(100);
+  setupImu("robot IMU", bno);
+  setupImu("robot Vest", bnoVest);
+
   bno.setExtCrystalUse(true);
   delay(100);
 
@@ -130,6 +127,8 @@ void setup()
 
 void loop()
 {
+  telemetry();
+
   loopTiming.now = micros();
   loopTiming.timer[0] = loopTiming.now;
   if (loopTiming.now - loopTiming.lastInner > loopTiming.tInner)
@@ -383,7 +382,7 @@ void checkRx()
 }
 
 // ************************* CAN RECEIVER
-//void rxMsg()
+// void rxMsg()
 //{
 //  if (canRx(0, &can.lMsgID, &can.bExtendedFormat, &can.cRxData[0], &can.cDataLen) == CAN_OK)
 //  {
@@ -395,6 +394,49 @@ void checkRx()
 //    }
 //  }
 //}
+
+void telemetry()
+{
+  unsigned long time = micros();
+  if (time - prevTelemetryReportTime < TELEMETRY_REPORT_PERIOD)
+  {
+    return;
+  }
+  prevTelemetryReportTime = time;
+
+  Serial.println("\n");
+  printImu("Robot IMU", bno);
+  printImu("Vest IMU", bnoVest);
+}
+
+void setupImu(String name, Adafruit_BNO055 &imu)
+{
+  Serial.println("Setting up" + name + "...");
+  if (!imu.begin())
+  {
+    Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while (1)
+      ;
+  }
+  else
+  {
+    Serial.println("Successfully connected to IMU");
+  }
+  delay(100);
+}
+
+void printImu(String name, Adafruit_BNO055 &imu)
+{
+  imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
+
+  Serial.print(name + ": (");
+  Serial.print(euler.x());
+  Serial.print(", ");
+  Serial.print(euler.y());
+  Serial.print(", ");
+  Serial.print(euler.z());
+  Serial.println(")");
+}
 
 // ***********************2.4 GHz RECEIVER  FUNCTIONS
 void calcCh1()
