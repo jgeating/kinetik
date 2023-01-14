@@ -41,7 +41,7 @@ struct SwerveKinematics
 struct LoopTiming
 {
   // Loop Timing Variables
-  double tInner = 3000;                                 // Target length of inner loop controller, microseconds
+  double tInner = 4000;                                 // Target length of inner loop controller, microseconds
   double tOuter = 50000;                                // Target length of outer (second) loop controller, microseconds
   unsigned long lastInner = 0;                          // last time counter of inner loop
   unsigned long lastOuter = 0;                          // last time counter of outer loop

@@ -33,6 +33,8 @@ const int CHANNEL_PIN[] = {
 // IMU stuff
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);     // (id, address), default 0x29 or 0x28
 Adafruit_BNO055 bnoVest = Adafruit_BNO055(-1, 0x28); // (id, address), default 0x29 or 0x28
+double vestAngleCenter = 0;
+
 double alpha = 0;
 imu::Vector<3> euler;
 
@@ -127,7 +129,8 @@ void setup()
 
 void loop()
 {
-  telemetry();
+  // telemetry();
+  centerVestAngle();
 
   loopTiming.now = micros();
   loopTiming.timer[0] = loopTiming.now;
@@ -228,10 +231,18 @@ void loop()
 
     for (int i = 0; i < swerveKinematics.nWheels; i++)
     {
-      yaw[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
-      delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
-      drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
-      delayMicroseconds(can.driveCanDelay);
+      // yaw[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+      // delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
+      // drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+      // delayMicroseconds(can.driveCanDelay);
+      yaw[i]->yawTo(90, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+
+      double relativeAngle = (vestAngleCenter - getImuZ(bnoVest));
+      double velocity = constrain(relativeAngle * 1 / 20, -1.0, 1.0);
+
+      drive[i]->setVel(velocity, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+
+      // drive[i]->setVel()
     }
     loopTiming.timer[4] = micros();
   }
@@ -368,6 +379,15 @@ double mapDouble(double x, double min_in, double max_in, double min_out, double 
   return ret;
 }
 
+void centerVestAngle()
+{
+  int reset = pwmReceiver.channels[6]->getCh();
+  if (reset < 400)
+  {
+    vestAngleCenter = getImuZ(bnoVest);
+  }
+}
+
 // This function detects if a receiver signal has been received recently. Used for safety, etc.
 void checkRx()
 {
@@ -409,6 +429,12 @@ void telemetry()
   printImu("Vest IMU", bnoVest);
 }
 
+double getImuZ(Adafruit_BNO055 &imu)
+{
+  imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
+  return euler.z();
+}
+
 void setupImu(String name, Adafruit_BNO055 &imu)
 {
   Serial.println("Setting up" + name + "...");
@@ -429,6 +455,11 @@ void printImu(String name, Adafruit_BNO055 &imu)
 {
   imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
 
+  uint8_t *system_status;
+  uint8_t *self_test_result;
+  uint8_t *system_error;
+  imu.getSystemStatus(system_status, self_test_result, system_error);
+
   Serial.print(name + ": (");
   Serial.print(euler.x());
   Serial.print(", ");
@@ -436,6 +467,8 @@ void printImu(String name, Adafruit_BNO055 &imu)
   Serial.print(", ");
   Serial.print(euler.z());
   Serial.println(")");
+  Serial.print(name + " status:");
+  Serial.println(*self_test_result);
 }
 
 // ***********************2.4 GHz RECEIVER  FUNCTIONS
