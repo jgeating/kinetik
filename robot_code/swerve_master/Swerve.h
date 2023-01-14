@@ -73,12 +73,12 @@ struct SwerveCAN
 struct PWMReceiver
 {
   short chs = 8;                                                    // number of channels to read from receiver
-  short chOff[] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500}; // Channel offsets (calibrate to find these)
+  short chOff[8] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500}; // Channel offsets (calibrate to find these)
   Channel **channels = new Channel *[chs];
   int rcTimeout = 100000; // number of microseconds before receiver timeout is tripped - make sure it is a good bit longer than 2000 microseconds
   bool rcLost = 1;        // This is set to true if no receiver signal is received within the rcTimeout timeframe (microseconds)
   int estop_ch = 6;       // which Rx channel is used for motor enabling/SW e-stop. 0 index
   int mode_ch = 7;        // which Rx channel is used for setting mode
-}
+};
 
 #endif

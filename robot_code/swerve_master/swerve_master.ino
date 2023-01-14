@@ -56,13 +56,7 @@ extern byte canRx(byte cPort, long *lMsgID, bool *bExtendedFormat, byte *cData, 
 SwerveCAN can;
 
 // PWM/Receiver stuff
-short chs = 8;                                                    // number of channels to read from receiver
-short chOff[] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500}; // Channel offsets (calibrate to find these)
-Channel **channels = new Channel *[chs];
-int rcTimeout = 100000; // number of microseconds before receiver timeout is tripped - make sure it is a good bit longer than 2000 microseconds
-bool rcLost = 1;        // This is set to true if no receiver signal is received within the rcTimeout timeframe (microseconds)
-int estop_ch = 6;       // which Rx channel is used for motor enabling/SW e-stop. 0 index
-int mode_ch = 7;        // which Rx channel is used for setting mode
+PWMReceiver pwmReceiver;
 
 // Robot state stuff
 int ir[] = {0, 0, 0, 0}; // status of IR sensor
@@ -101,18 +95,18 @@ void setup()
   Serial.println("CAN and Pins initialized. Initializing RC interrupts...");
 
   // RC PWM interrupt setup
-  for (int i = 0; i < chs; i++)
+  for (int i = 0; i < pwmReceiver.chs; i++)
   {
-    channels[i] = new Channel(CHANNEL_PIN[i], chOff[i]);
+    pwmReceiver.channels[i] = new Channel(CHANNEL_PIN[i], pwmReceiver.chOff[i]);
   }
-  attachInterrupt(channels[0]->getPin(), calcCh1, CHANGE);
-  attachInterrupt(channels[1]->getPin(), calcCh2, CHANGE);
-  attachInterrupt(channels[2]->getPin(), calcCh3, CHANGE);
-  attachInterrupt(channels[3]->getPin(), calcCh4, CHANGE);
-  attachInterrupt(channels[4]->getPin(), calcCh5, CHANGE);
-  attachInterrupt(channels[5]->getPin(), calcCh6, CHANGE);
-  attachInterrupt(channels[6]->getPin(), calcCh7, CHANGE);
-  attachInterrupt(channels[7]->getPin(), calcCh8, CHANGE);
+  attachInterrupt(pwmReceiver.channels[0]->getPin(), calcCh1, CHANGE);
+  attachInterrupt(pwmReceiver.channels[1]->getPin(), calcCh2, CHANGE);
+  attachInterrupt(pwmReceiver.channels[2]->getPin(), calcCh3, CHANGE);
+  attachInterrupt(pwmReceiver.channels[3]->getPin(), calcCh4, CHANGE);
+  attachInterrupt(pwmReceiver.channels[4]->getPin(), calcCh5, CHANGE);
+  attachInterrupt(pwmReceiver.channels[5]->getPin(), calcCh6, CHANGE);
+  attachInterrupt(pwmReceiver.channels[6]->getPin(), calcCh7, CHANGE);
+  attachInterrupt(pwmReceiver.channels[7]->getPin(), calcCh8, CHANGE);
   Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
 
   //  IMU
@@ -173,11 +167,11 @@ void loop()
     { // tele-op mode
       for (int k = 0; k < 3; k++)
       {
-        swerveTrajectory.qd_d[k] = constrain(channels[k + 1]->getCh(), -500, 500);
+        swerveTrajectory.qd_d[k] = constrain(pwmReceiver.channels[k + 1]->getCh(), -500, 500);
         swerveTrajectory.qd_d[k] = swerveTrajectory.qd_d[k] * swerveTrajectory.qd_max[k] / 500.0;
         if (k < 2)
         {
-          swerveTrajectory.qd_d[k] = swerveTrajectory.qd_d[k] * float(constrain(channels[0]->getCh(), -500, 500) / 1000.0 + 0.5); // Scale up to max velocity using left stick vertical (throttle, no spring center)
+          swerveTrajectory.qd_d[k] = swerveTrajectory.qd_d[k] * float(constrain(pwmReceiver.channels[0]->getCh(), -500, 500) / 1000.0 + 0.5); // Scale up to max velocity using left stick vertical (throttle, no spring center)
         }
       }
 
@@ -251,9 +245,9 @@ void loop()
 
     for (int i = 0; i < swerveKinematics.nWheels; i++)
     {
-      yaw[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), channels[estop_ch]->getCh(), rcLost);
+      yaw[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
       delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
-      drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), channels[estop_ch]->getCh(), rcLost);
+      drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
       delayMicroseconds(can.driveCanDelay);
     }
     loopTiming.timer[4] = micros();
@@ -270,28 +264,28 @@ void loop()
     checkRx(); // check if receiver signal has been lost
 
     // Check channels, modes
-    if (channels[5]->getCh() > 400)
+    if (pwmReceiver.channels[5]->getCh() > 400)
     {
       calMotor(can); // Calibrate motors
     }
-    if (channels[estop_ch]->getCh() < -400 && channels[estop_ch]->getCh() < 100)
+    if (pwmReceiver.channels[pwmReceiver.estop_ch]->getCh() < -400 && pwmReceiver.channels[pwmReceiver.estop_ch]->getCh() < 100)
     { // calibrate force pads, only if steering motoors are off
       swerveTrajectory.qd_d[0] = 0;
       swerveTrajectory.qd_d[1] = 0;
       swerveTrajectory.qd_d[2] = 0;
     }
-    if (channels[mode_ch]->getCh() < -300)
+    if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < -300)
     { // default mode is tele-op, blue stick top position
       mode = 0;
       planner->setMode(0);
       eStop = 0; // Also disable e-stop if tripped
     }
-    if (channels[mode_ch]->getCh() > -300 && channels[mode_ch]->getCh() < 300)
+    if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > -300 && pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < 300)
     { // IMU zeroing mode
       mode = 1;
       planner->setMode(1);
     }
-    if (channels[mode_ch]->getCh() > 300)
+    if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300)
     { // riding mode, blue stick down position
       mode = 2;
       planner->setMode(2);
@@ -341,7 +335,7 @@ void calMotor(SwerveCAN &can)
   for (int j = 0; j < swerveKinematics.nWheels; j++)
   {
     yaw[j]->setHoming(2); // set homing mode to true for all axes
-    yaw[j]->motTo(0, channels[estop_ch]->getCh(), rcLost);
+    yaw[j]->motTo(0, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
   }
   delay(750);          // Give motor time to move to zero position if it is wound up
   double fineTune = 1; // to step in less than 1 deg increments - this is the ratio (0.2 would be in 0.2 degree increments
@@ -367,7 +361,7 @@ void calMotor(SwerveCAN &can)
       { // position signal should persist, but motor should stop moving after cal marker is detected
         can.pos = yaw[j]->getMPos();
       }
-      yaw[j]->motTo(can.pos, channels[estop_ch]->getCh(), rcLost);
+      yaw[j]->motTo(can.pos, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
     }
     delayMicroseconds(800);
     doneHoming = 1;
@@ -394,13 +388,13 @@ double mapDouble(double x, double min_in, double max_in, double min_out, double 
 // This function detects if a receiver signal has been received recently. Used for safety, etc.
 void checkRx()
 {
-  if (micros() - channels[estop_ch]->getLastInterruptTime() > rcTimeout)
+  if (micros() - pwmReceiver.channels[pwmReceiver.estop_ch]->getLastInterruptTime() > pwmReceiver.rcTimeout)
   {
-    rcLost = 1;
+    pwmReceiver.rcLost = 1;
   }
   else
   {
-    rcLost = 0;
+    pwmReceiver.rcLost = 0;
   }
 }
 
@@ -421,33 +415,33 @@ void checkRx()
 // ***********************2.4 GHz RECEIVER  FUNCTIONS
 void calcCh1()
 {
-  channels[0]->calc();
+  pwmReceiver.channels[0]->calc();
 }
 void calcCh2()
 {
-  channels[1]->calc();
+  pwmReceiver.channels[1]->calc();
 }
 void calcCh3()
 {
-  channels[2]->calc();
+  pwmReceiver.channels[2]->calc();
 }
 void calcCh4()
 {
-  channels[3]->calc();
+  pwmReceiver.channels[3]->calc();
 }
 void calcCh5()
 {
-  channels[4]->calc();
+  pwmReceiver.channels[4]->calc();
 }
 void calcCh6()
 {
-  channels[5]->calc();
+  pwmReceiver.channels[5]->calc();
 }
 void calcCh7()
 {
-  channels[6]->calc();
+  pwmReceiver.channels[6]->calc();
 }
 void calcCh8()
 {
-  channels[7]->calc();
+  pwmReceiver.channels[7]->calc();
 }
