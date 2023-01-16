@@ -1,6 +1,5 @@
 #include "DueCANLayer.h";     // CAN library for CAN shield
 #include <math.h>;            // Math functions
-#include "Channel.h";         // for RC PWM inputs
 #include "Kinematics.h";      // wheel level kinematics/trigonometry
 #include "Planner.h";         // robot level planning
 #include "utils.h";           // Basic utils like more powerful serial
@@ -62,6 +61,8 @@ double wMaxYaw = 10000; // Max angular velocity of yaw motor, in motor frame, ra
 int doneHoming = 0;     // Used to determine when calibration sequence is finished. 1 = finished.
 
 unsigned long prevTelemetryReportTime = 0;
+
+Watchdog watchdog;
 
 void setup()
 {
@@ -129,7 +130,8 @@ void setup()
 
 void loop()
 {
-  // telemetry();
+  printWatchdogError(watchdog);
+  telemetry();
   centerVestAngle();
 
   loopTiming.now = micros();
@@ -454,19 +456,12 @@ void setupImu(String name, Adafruit_BNO055 &imu)
 void printImu(String name, Adafruit_BNO055 &imu)
 {
   imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
-
   uint8_t *system_status;
   uint8_t *self_test_result;
   uint8_t *system_error;
   imu.getSystemStatus(system_status, self_test_result, system_error);
-
-  Serial.print(name + ": (");
-  Serial.print(euler.x());
-  Serial.print(", ");
-  Serial.print(euler.y());
-  Serial.print(", ");
-  Serial.print(euler.z());
-  Serial.println(")");
+  Serial.print(name + ": ");
+  serialPrintln(100, "(%.2f, %.2f, %.2f)", euler.x(), euler.y(), euler.z());
   Serial.print(name + " status:");
   Serial.println(*self_test_result);
 }
