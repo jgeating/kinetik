@@ -11,6 +11,7 @@
 #include "Adafruit_BNO055.h"  // Downloaded library for IMU stuff
 #include "utility/imumaths.h" // Downloaded library for IMU stuff
 #include "Swerve.h";
+#include "Performance.h";
 
 const int CHANNEL_PIN[] = {
     38, // left stick vertical, forward = (+)
@@ -42,6 +43,7 @@ Planner *planner;
 SwerveImu swerveImu;
 SwerveKinematics swerveKinematics;
 LoopTiming loopTiming;
+Profiles profiles;
 
 // Modes, safety, e-stop, debug
 Modes modes;
@@ -130,14 +132,19 @@ void setup()
 
 void loop()
 {
-  printWatchdogError(watchdog);
-  telemetry();
+  startProfile(profiles.robotLoop);
+  // printWatchdogError(watchdog);
+  // telemetry();
+  startProfile(profiles.centerVestAngle);
   centerVestAngle();
+  endProfile(profiles.centerVestAngle);
+
 
   loopTiming.now = micros();
-  loopTiming.timer[0] = loopTiming.now;
   if (loopTiming.now - loopTiming.lastInner > loopTiming.tInner)
   {
+    startProfile(profiles.loopTiming);
+
     if (loopTiming.behind)
     { // This means we can't keep up with the desired loop rate. Trip LED to indicate so
       digitalWrite(13, HIGH);
@@ -150,9 +157,16 @@ void loop()
       loopTiming.behind = true;
     }
 
+    endProfile(profiles.loopTiming);
+
     //***************BEGIN FAST LOOP*******************
-    if (modes.mode == 0)
-    { // tele-op mode
+    if (true) {
+
+    } else if (modes.mode == 0)
+    {
+      startProfile(profiles.mode0);
+
+      // tele-op mode
       for (int k = 0; k < 3; k++)
       {
         swerveTrajectory.qd_d[k] = constrain(pwmReceiver.channels[k + 1]->getCh(), -500, 500);
@@ -176,9 +190,13 @@ void loop()
 
       // sprintf(buff, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
       // Serial.println(buff);
+      endProfile(profiles.mode0);
     }
     else if (modes.mode == 1 || modes.mode == 2 || modes.mode == 3)
-    { // IMU modes. 1 = zero, 2 = velocity, 3 = acceleration
+    {
+      startProfile(profiles.modeOther);
+
+      // IMU modes. 1 = zero, 2 = velocity, 3 = acceleration
       canTx(swerveImu.IMU_bus, swerveImu.canID, false, swerveImu.getEulerCode, 8);
       delayMicroseconds(100);
       bool buffed = 1;
@@ -210,7 +228,10 @@ void loop()
           buffed = 0;
         }
       }
+      endProfile(profiles.modeOther);
     }
+
+    startProfile(profiles.kinematics);
 
     // Perform planning
     swerveTrajectory.qd_d[0] = planner->getTargetVX();
@@ -230,6 +251,14 @@ void loop()
       //      Serial.println(kinematics[i]->getTargetVel());
     }
     // delay(30);
+    endProfile(profiles.kinematics);
+
+    startProfile(profiles.getImuZForVest);
+    double relativeAngle = (vestAngleCenter - getImuZ(bnoVest));
+    endProfile(profiles.getImuZForVest);
+
+    startProfile(profiles.updateMotorSpeeds);
+    int eStopChannel = pwmReceiver.channels[pwmReceiver.estop_ch]->getCh();
 
     for (int i = 0; i < swerveKinematics.nWheels; i++)
     {
@@ -237,21 +266,19 @@ void loop()
       // delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
       // drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
       // delayMicroseconds(can.driveCanDelay);
-      yaw[i]->yawTo(90, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
-
-      double relativeAngle = (vestAngleCenter - getImuZ(bnoVest));
+      yaw[i]->yawTo(90, eStopChannel, pwmReceiver.rcLost);
       double velocity = constrain(relativeAngle * 1 / 20, -1.0, 1.0);
-
-      drive[i]->setVel(velocity, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
-
+      drive[i]->setVel(velocity, eStopChannel, pwmReceiver.rcLost);
       // drive[i]->setVel()
     }
-    loopTiming.timer[4] = micros();
+    endProfile(profiles.updateMotorSpeeds);
   }
   else
   {
     loopTiming.behind = false;
   }
+
+  startProfile(profiles.outerLoop);
 
   if (loopTiming.now - loopTiming.lastOuter > loopTiming.tOuter)
   {
@@ -286,7 +313,6 @@ void loop()
       modes.mode = 2;
       planner->setMode(2);
     }
-    loopTiming.timer[5] = micros();
 
     // Debug related
     if (modes.debugRiding)
@@ -296,31 +322,12 @@ void loop()
       Serial.println(swerveTrajectory.qd_d[1]);
       delay(20);
     }
-    if (modes.debugRx)
-    {
-      // printChannels(); // printChannels() has been deleted
-      delay(20);
-    }
-    if (modes.debugTiming)
-    {
-      Serial.println();
-      Serial.println();
-      char buff[40];
-      sprintf(buff, "prior to imu poll:                %i usec", loopTiming.timer[1] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "After IMU poll:                   %i usec", loopTiming.timer[2] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "unused:                          %i usec", loopTiming.timer[3] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "After sending CAN commands:       %i usec", loopTiming.timer[4] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "After outer loop:                 %i usec", loopTiming.timer[5] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "After Serial output (debug only): %i usec", micros() - loopTiming.timer[0]);
-      Serial.println(buff);
-      delay(20);
-    }
   }
+  endProfile(profiles.outerLoop);
+
+
+  endProfile(profiles.robotLoop);
+  printProfiles(profiles);
 }
 
 // *********************************************** HELPER FUNCTIONS **************************************************************

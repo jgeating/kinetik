@@ -1,7 +1,7 @@
 #ifndef _SWERVE_
 #define _SWERVE_
 
-#include "Arduino.h"
+#include "Arduino.h";
 #include "Kinematics.h"; // wheel level kinematics/trigonometry
 #include "utils.h";           // Basic utils like more powerful serial
 #include "Channel.h";         // for RC PWM inputs
@@ -93,7 +93,7 @@ struct Modes
   int mode = 0;         // 0 = RC mode (teleop), 1 = weight control mode
   int eStop = 0;        // e-stop variable for safety
   bool debugRx = 0;     // whether or not to debug receiver
-  bool debugTiming = 0; // whether or not to debug timing, look at loop lengths, etc.
+  bool debugTiming = 1; // whether or not to debug timing, look at loop lengths, etc.
   bool debugRiding = 0;
 };
 

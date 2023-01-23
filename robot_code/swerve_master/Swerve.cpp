@@ -1,5 +1,5 @@
-#include "Arduino.h"
 #include "Swerve.h"
+#include "Arduino.h"
 
 void printWatchdogError(Watchdog &watchdog)
 {
