@@ -159,10 +159,7 @@ void loop()
     endProfile(profiles.loopTiming);
 
     //***************BEGIN FAST LOOP*******************
-    if (true)
-    {
-    }
-    else if (modes.mode == 0)
+    if (modes.mode == 0)
     {
       startProfile(profiles.mode0);
 
@@ -263,7 +260,7 @@ void loop()
 
     for (int i = 0; i < swerveKinematics.nWheels; i++)
     {
-      if (true)
+      if (teleop)
       {
         yaw[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
@@ -273,7 +270,7 @@ void loop()
       else
       {
         yaw[i]->yawTo(90, eStopChannel, pwmReceiver.rcLost);
-        double velocity = constrain(relativeAngle * 1 / 20, -1.0, 1.0);
+        double velocity = constrain(relativeAngle * 0.1, -3.0, 3.0);
         drive[i]->setVel(velocity, eStopChannel, pwmReceiver.rcLost);
         // drive[i]->setVel()
       }
