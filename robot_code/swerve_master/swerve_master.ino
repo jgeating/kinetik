@@ -1,6 +1,5 @@
 #include "DueCANLayer.h";     // CAN library for CAN shield
 #include <math.h>;            // Math functions
-#include "Channel.h";         // for RC PWM inputs
 #include "Kinematics.h";      // wheel level kinematics/trigonometry
 #include "Planner.h";         // robot level planning
 #include "utils.h";           // Basic utils like more powerful serial
@@ -12,6 +11,7 @@
 #include "Adafruit_BNO055.h"  // Downloaded library for IMU stuff
 #include "utility/imumaths.h" // Downloaded library for IMU stuff
 #include "Swerve.h";
+#include "Performance.h";
 
 const int CHANNEL_PIN[] = {
     38, // left stick vertical, forward = (+)
@@ -28,9 +28,13 @@ const int CHANNEL_PIN[] = {
 #define DEAD_ZONE 0.1
 #define pi 3.14159265358979
 #define BNO055_SAMPLERATE_DELAY_MS (10)
+#define TELEMETRY_REPORT_PERIOD 500000
 
 // IMU stuff
-Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28); // (id, address), default 0x29 or 0x28
+Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);     // (id, address), default 0x29 or 0x28
+Adafruit_BNO055 bnoVest = Adafruit_BNO055(-1, 0x28); // (id, address), default 0x29 or 0x28
+double vestAngleCenter = 0;
+
 double alpha = 0;
 imu::Vector<3> euler;
 
@@ -39,6 +43,7 @@ Planner *planner;
 SwerveImu swerveImu;
 SwerveKinematics swerveKinematics;
 LoopTiming loopTiming;
+Profiles profiles;
 
 // Modes, safety, e-stop, debug
 Modes modes;
@@ -56,6 +61,10 @@ Yaw **yaw = new Yaw *[swerveKinematics.nWheels];
 double aMaxYaw = 5000;  // Max angular acceleration of yaw motor, in motor frame, rad/s^2. Safe starting value: 5000
 double wMaxYaw = 10000; // Max angular velocity of yaw motor, in motor frame, rad/s. Safe starting value: 10000
 int doneHoming = 0;     // Used to determine when calibration sequence is finished. 1 = finished.
+
+unsigned long prevTelemetryReportTime = 0;
+
+Watchdog watchdog;
 
 void setup()
 {
@@ -76,6 +85,8 @@ void setup()
   }
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW); // Set up indicator LED
+  pinMode(5, OUTPUT);
+  digitalWrite(5, HIGH); // Set address of Vest IMU to high
   Serial.println("CAN and Pins initialized. Initializing RC interrupts...");
 
   // RC PWM interrupt setup
@@ -94,18 +105,9 @@ void setup()
   Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
 
   //  IMU
-  Serial.println("Setting up IMU...");
-  if (!bno.begin())
-  {
-    Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-    while (1)
-      ;
-  }
-  else
-  {
-    Serial.println("Successfully connected to IMU");
-  }
-  delay(100);
+  setupImu("robot IMU", bno);
+  setupImu("robot Vest", bnoVest);
+
   bno.setExtCrystalUse(true);
   delay(100);
 
@@ -130,10 +132,18 @@ void setup()
 
 void loop()
 {
+  startProfile(profiles.robotLoop);
+  // printWatchdogError(watchdog);
+  // telemetry();
+  startProfile(profiles.centerVestAngle);
+  centerVestAngle();
+  endProfile(profiles.centerVestAngle);
+
   loopTiming.now = micros();
-  loopTiming.timer[0] = loopTiming.now;
   if (loopTiming.now - loopTiming.lastInner > loopTiming.tInner)
   {
+    startProfile(profiles.loopTiming);
+
     if (loopTiming.behind)
     { // This means we can't keep up with the desired loop rate. Trip LED to indicate so
       digitalWrite(13, HIGH);
@@ -146,9 +156,14 @@ void loop()
       loopTiming.behind = true;
     }
 
+    endProfile(profiles.loopTiming);
+
     //***************BEGIN FAST LOOP*******************
     if (modes.mode == 0)
-    { // tele-op mode
+    {
+      startProfile(profiles.mode0);
+
+      // tele-op mode
       for (int k = 0; k < 3; k++)
       {
         swerveTrajectory.qd_d[k] = constrain(pwmReceiver.channels[k + 1]->getCh(), -500, 500);
@@ -172,9 +187,13 @@ void loop()
 
       // sprintf(buff, "Inputs: x: %.2f m/s, y: %.2f m/s, z: %.2f m/s", qd_d[0], qd_d[1], qd_d[2]);
       // Serial.println(buff);
+      endProfile(profiles.mode0);
     }
     else if (modes.mode == 1 || modes.mode == 2 || modes.mode == 3)
-    { // IMU modes. 1 = zero, 2 = velocity, 3 = acceleration
+    {
+      startProfile(profiles.modeOther);
+
+      // IMU modes. 1 = zero, 2 = velocity, 3 = acceleration
       canTx(swerveImu.IMU_bus, swerveImu.canID, false, swerveImu.getEulerCode, 8);
       delayMicroseconds(100);
       bool buffed = 1;
@@ -206,7 +225,10 @@ void loop()
           buffed = 0;
         }
       }
+      endProfile(profiles.modeOther);
     }
+
+    startProfile(profiles.kinematics);
 
     // Perform planning
     swerveTrajectory.qd_d[0] = planner->getTargetVX();
@@ -226,20 +248,41 @@ void loop()
       //      Serial.println(kinematics[i]->getTargetVel());
     }
     // delay(30);
+    endProfile(profiles.kinematics);
+
+    startProfile(profiles.getImuZForVest);
+    double relativeAngle = (vestAngleCenter - getImuZ(bnoVest));
+    endProfile(profiles.getImuZForVest);
+
+    startProfile(profiles.updateMotorSpeeds);
+    int eStopChannel = pwmReceiver.channels[pwmReceiver.estop_ch]->getCh();
+    bool teleop = pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < -300;
 
     for (int i = 0; i < swerveKinematics.nWheels; i++)
     {
-      yaw[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
-      delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
-      drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
-      delayMicroseconds(can.driveCanDelay);
+      if (teleop)
+      {
+        yaw[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+        delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
+        drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+        delayMicroseconds(can.driveCanDelay);
+      }
+      else
+      {
+        yaw[i]->yawTo(90, eStopChannel, pwmReceiver.rcLost);
+        double velocity = constrain(relativeAngle * 0.1, -3.0, 3.0);
+        drive[i]->setVel(velocity, eStopChannel, pwmReceiver.rcLost);
+        // drive[i]->setVel()
+      }
     }
-    loopTiming.timer[4] = micros();
+    endProfile(profiles.updateMotorSpeeds);
   }
   else
   {
     loopTiming.behind = false;
   }
+
+  startProfile(profiles.outerLoop);
 
   if (loopTiming.now - loopTiming.lastOuter > loopTiming.tOuter)
   {
@@ -274,7 +317,6 @@ void loop()
       modes.mode = 2;
       planner->setMode(2);
     }
-    loopTiming.timer[5] = micros();
 
     // Debug related
     if (modes.debugRiding)
@@ -284,31 +326,11 @@ void loop()
       Serial.println(swerveTrajectory.qd_d[1]);
       delay(20);
     }
-    if (modes.debugRx)
-    {
-      // printChannels(); // printChannels() has been deleted
-      delay(20);
-    }
-    if (modes.debugTiming)
-    {
-      Serial.println();
-      Serial.println();
-      char buff[40];
-      sprintf(buff, "prior to imu poll:                %i usec", loopTiming.timer[1] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "After IMU poll:                   %i usec", loopTiming.timer[2] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "unused:                          %i usec", loopTiming.timer[3] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "After sending CAN commands:       %i usec", loopTiming.timer[4] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "After outer loop:                 %i usec", loopTiming.timer[5] - loopTiming.timer[0]);
-      Serial.println(buff);
-      sprintf(buff, "After Serial output (debug only): %i usec", micros() - loopTiming.timer[0]);
-      Serial.println(buff);
-      delay(20);
-    }
   }
+  endProfile(profiles.outerLoop);
+
+  endProfile(profiles.robotLoop);
+  // printProfiles(profiles);
 }
 
 // *********************************************** HELPER FUNCTIONS **************************************************************
@@ -369,6 +391,15 @@ double mapDouble(double x, double min_in, double max_in, double min_out, double 
   return ret;
 }
 
+void centerVestAngle()
+{
+  int reset = pwmReceiver.channels[6]->getCh();
+  if (reset < 400)
+  {
+    vestAngleCenter = getImuZ(bnoVest);
+  }
+}
+
 // This function detects if a receiver signal has been received recently. Used for safety, etc.
 void checkRx()
 {
@@ -383,7 +414,7 @@ void checkRx()
 }
 
 // ************************* CAN RECEIVER
-//void rxMsg()
+// void rxMsg()
 //{
 //  if (canRx(0, &can.lMsgID, &can.bExtendedFormat, &can.cRxData[0], &can.cDataLen) == CAN_OK)
 //  {
@@ -395,6 +426,55 @@ void checkRx()
 //    }
 //  }
 //}
+
+void telemetry()
+{
+  unsigned long time = micros();
+  if (time - prevTelemetryReportTime < TELEMETRY_REPORT_PERIOD)
+  {
+    return;
+  }
+  prevTelemetryReportTime = time;
+
+  Serial.println("\n");
+  printImu("Robot IMU", bno);
+  printImu("Vest IMU", bnoVest);
+}
+
+double getImuZ(Adafruit_BNO055 &imu)
+{
+  imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
+  return euler.z();
+}
+
+void setupImu(String name, Adafruit_BNO055 &imu)
+{
+  Serial.println("Setting up" + name + "...");
+  if (!imu.begin())
+  {
+    Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while (1)
+      ;
+  }
+  else
+  {
+    Serial.println("Successfully connected to IMU");
+  }
+  delay(100);
+}
+
+void printImu(String name, Adafruit_BNO055 &imu)
+{
+  imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
+  uint8_t *system_status;
+  uint8_t *self_test_result;
+  uint8_t *system_error;
+  imu.getSystemStatus(system_status, self_test_result, system_error);
+  Serial.print(name + ": ");
+  serialPrintln(100, "(%.2f, %.2f, %.2f)", euler.x(), euler.y(), euler.z());
+  Serial.print(name + " status:");
+  Serial.println(*self_test_result);
+}
 
 // ***********************2.4 GHz RECEIVER  FUNCTIONS
 void calcCh1()

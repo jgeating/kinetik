@@ -1,10 +1,12 @@
 #ifndef _SWERVE_
 #define _SWERVE_
 
+#include "Arduino.h";
 #include "Kinematics.h"; // wheel level kinematics/trigonometry
+#include "utils.h";           // Basic utils like more powerful serial
+#include "Channel.h";         // for RC PWM inputs
 
-#define YAW_GEAR_RATIO -18          // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
-
+#define YAW_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
 struct SwerveImu
 {
@@ -41,7 +43,7 @@ struct SwerveKinematics
 struct LoopTiming
 {
   // Loop Timing Variables
-  double tInner = 3000;                                 // Target length of inner loop controller, microseconds
+  double tInner = 4000;                                 // Target length of inner loop controller, microseconds
   double tOuter = 50000;                                // Target length of outer (second) loop controller, microseconds
   unsigned long lastInner = 0;                          // last time counter of inner loop
   unsigned long lastOuter = 0;                          // last time counter of outer loop
@@ -91,7 +93,7 @@ struct Modes
   int mode = 0;         // 0 = RC mode (teleop), 1 = weight control mode
   int eStop = 0;        // e-stop variable for safety
   bool debugRx = 0;     // whether or not to debug receiver
-  bool debugTiming = 0; // whether or not to debug timing, look at loop lengths, etc.
+  bool debugTiming = 1; // whether or not to debug timing, look at loop lengths, etc.
   bool debugRiding = 0;
 };
 
@@ -103,8 +105,20 @@ struct RobotState
   double irPos[4] = {254 - 180, 84 + 180, 73 + 180, 257 - 180}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
   int irPin[4] = {22, 24, 26, 28};                              // pins that ir sensors are hooked up to
   double mRPM[4] = {0, 0, 0, 0};                                // Speed of drive motors (pre gear stage). In eRPM, I think...
-  double yRatio = YAW_GEAR_RATIO;                              // Yaw pulley stage ratio, >1
+  double yRatio = YAW_GEAR_RATIO;                               // Yaw pulley stage ratio, >1
   int motPol[4] = {1, 1, 1, 1};                                 // Used to switch motor direction depending on VESC configuration. Not implemented yet due to datatype issues. Just changing VESC parameters instead
 };
+
+struct Watchdog
+{
+  unsigned long loopTimeMicros = 4500;
+  unsigned long timeBetweenReportsMicros = 1000000;
+  unsigned long prevReportTime = 0;
+  unsigned long prevLoopTime = 0;
+};
+
+void printWatchdogError(Watchdog &watchdog);
+void serialPrintln(int bufferSize, const char *format, ...);
+void serialPrint(int bufferSize, const char *format, ...);
 
 #endif
