@@ -1,7 +1,11 @@
 import grafica.*;
 
-GPlot plot;
-GPlot plot2;
+GPlot swerveAnglePlot;
+GPlot xVelocityPlot;
+GPlot yVelocityPlot;
+GPlot vestAnglePlot;
+GPlot motorVelocityPlot;
+GPlot motorYawPlot;
 
 int startTime = 0;
 int lastStepTime = 0;
@@ -9,39 +13,75 @@ int totalPoints = 0;
 
 
 void setup() {
-  size(2000, 1000);
+  size(1800, 1200);
   background(150);
   
   // Create a new plot and set its position on the screen
-  plot = new GPlot(this);
-  plot.setPos(25, 25);
-  plot.setDim(800, 300);
-  //plot.setTicksLength(-4);
-  plot.setHorizontalAxesTicksSeparation(1);
-  
-  // Set the plot title and the axis labels
-  plot.setTitleText("Gyro Angle");
-  plot.getXAxis().setAxisLabelText("Time");
-  plot.getYAxis().setAxisLabelText("Yaw");
- 
-  setXAxis(plot);
-  plot.setYLim(0, 360); 
+  swerveAnglePlot = new GPlot(this);
+  swerveAnglePlot.setPos(0, 0);
+  swerveAnglePlot.setDim(800, 300);
+  swerveAnglePlot.setHorizontalAxesTicksSeparation(1);
+  swerveAnglePlot.setTitleText("Swerve Angle");
+  swerveAnglePlot.getXAxis().setAxisLabelText("Time (s)");
+  swerveAnglePlot.getYAxis().setAxisLabelText("Angle (deg)");
+  setXAxis(swerveAnglePlot);
+  swerveAnglePlot.setYLim(0, 360); 
   
   
   // Create a new plot and set its position on the screen
-  plot2 = new GPlot(this);
-  plot2.setPos(25, 425);
-  plot2.setDim(800, 300);
-  //plot.setTicksLength(-4);
-  plot2.setHorizontalAxesTicksSeparation(1);
+  xVelocityPlot = new GPlot(this);
+  xVelocityPlot.setPos(0, 400);
+  xVelocityPlot.setDim(800, 300);
+  xVelocityPlot.setHorizontalAxesTicksSeparation(1);
+  xVelocityPlot.setTitleText("X Velocity");
+  xVelocityPlot.getXAxis().setAxisLabelText("Time (s)");
+  xVelocityPlot.getYAxis().setAxisLabelText("Velocity (ft/s)");
+  setXAxis(xVelocityPlot);
+  xVelocityPlot.setYLim(-10, 10); 
   
-  // Set the plot title and the axis labels
-  plot2.setTitleText("Velocity");
-  plot2.getXAxis().setAxisLabelText("Time");
-  plot2.getYAxis().setAxisLabelText("Velocity (ft/s)");
- 
-  setXAxis(plot2);
-  plot2.setYLim(-10, 10); 
+  // Create a new plot and set its position on the screen
+  yVelocityPlot = new GPlot(this);
+  yVelocityPlot.setPos(0, 800);
+  yVelocityPlot.setDim(800, 300);
+  yVelocityPlot.setHorizontalAxesTicksSeparation(1);
+  yVelocityPlot.setTitleText("Y Velocity");
+  yVelocityPlot.getXAxis().setAxisLabelText("Time (s)");
+  yVelocityPlot.getYAxis().setAxisLabelText("Velocity (ft/s)");
+  setXAxis(yVelocityPlot);
+  yVelocityPlot.setYLim(-10, 10); 
+  
+  // Create a new plot and set its position on the screen
+  vestAnglePlot = new GPlot(this);
+  vestAnglePlot.setPos(900, 0);
+  vestAnglePlot.setDim(800, 300);
+  vestAnglePlot.setHorizontalAxesTicksSeparation(1);
+  vestAnglePlot.setTitleText("Vest Angle");
+  vestAnglePlot.getXAxis().setAxisLabelText("Time (s)");
+  vestAnglePlot.getYAxis().setAxisLabelText("Angle (deg)");
+  setXAxis(vestAnglePlot);
+  vestAnglePlot.setYLim(0, 360); 
+  
+  // Create a new plot and set its position on the screen
+  motorVelocityPlot = new GPlot(this);
+  motorVelocityPlot.setPos(900, 400);
+  motorVelocityPlot.setDim(800, 300);
+  motorVelocityPlot.setHorizontalAxesTicksSeparation(1);
+  motorVelocityPlot.setTitleText("Motor Velocities");
+  motorVelocityPlot.getXAxis().setAxisLabelText("Time (s)");
+  motorVelocityPlot.getYAxis().setAxisLabelText("Velocity (ft/s)");
+  setXAxis(motorVelocityPlot);
+  motorVelocityPlot.setYLim(-10, 10); 
+  
+   // Create a new plot and set its position on the screen
+  motorYawPlot = new GPlot(this);
+  motorYawPlot.setPos(900, 800);
+  motorYawPlot.setDim(800, 300);
+  motorYawPlot.setHorizontalAxesTicksSeparation(1);
+  motorYawPlot.setTitleText("Motor Yaws");
+  motorYawPlot.getXAxis().setAxisLabelText("Time (s)");
+  motorYawPlot.getYAxis().setAxisLabelText("Angle (deg)");
+  setXAxis(motorYawPlot);
+  motorYawPlot.setYLim(0, 360); 
   
   // time
   lastStepTime = millis();
@@ -53,20 +93,35 @@ public void draw() {
   if (millis() - lastStepTime > 100) {
     lastStepTime = millis();
     if (totalPoints >= 100) {
-      plot.removePoint(0);
+      swerveAnglePlot.removePoint(0);
     }
-    plot.addPoint((lastStepTime - startTime) / 1000.0, random(360));
-    
-    plot2.addPoint((lastStepTime - startTime) / 1000.0, random(20) - 10);
+    swerveAnglePlot.addPoint((lastStepTime - startTime) / 1000.0, random(360));
+    xVelocityPlot.addPoint((lastStepTime - startTime) / 1000.0, random(20) - 10);    
+    yVelocityPlot.addPoint((lastStepTime - startTime) / 1000.0, random(20) - 10);
+    vestAnglePlot.addPoint((lastStepTime - startTime) / 1000.0, random(360));
+    motorVelocityPlot.addPoint((lastStepTime - startTime) / 1000.0, random(20) - 10);
+    motorYawPlot.addPoint((lastStepTime - startTime) / 1000.0, random(360));
 
     totalPoints++;
   }
   
-  setXAxis(plot);
-  drawPlot(plot);
+  setXAxis(swerveAnglePlot);
+  drawPlot(swerveAnglePlot);
   
-  setXAxis(plot2);
-  drawPlot(plot2);
+  setXAxis(xVelocityPlot);
+  drawPlot(xVelocityPlot);
+  
+  setXAxis(yVelocityPlot);
+  drawPlot(yVelocityPlot);
+  
+  setXAxis(vestAnglePlot);
+  drawPlot(vestAnglePlot);
+  
+  setXAxis(motorVelocityPlot);
+  drawPlot(motorVelocityPlot);
+  
+  setXAxis(motorYawPlot);
+  drawPlot(motorYawPlot);
 }
 
 public void drawPlot(GPlot plot) {
