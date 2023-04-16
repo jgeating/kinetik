@@ -20,19 +20,31 @@ Drive::Drive(double vMax, double aMax, double dRatio, double tInner, int len, in
   MaxDelRPM = aMax * tInner / 1000000.0;//need to change variables
 }
 
+
+double bound(double value, double a, double b) {
+  return a < b ? constrain(value, a, b) : constrain(value, b, a);
+}
+
 // This function sends velocity commands to a Drive wheel, while abiding by acceleration limits. Input in m/s 
 void Drive::slewVel(double vel, int ch, int rcLost){
 
-  // used in loop()
-  double dv = vel - this->v;
-  
-  if (abs(dv) < dv){
-    this->v = vel;
-  } else {
-    this-> v= this->v + sign(dv) * MaxDelRPM;
-  }
-  this->v = constrain(this->v, -1*this->vMax, this->vMax);
+  double maxVel = sign(vel) * (abs(vel) + MaxDelRPM); 
+  double minVel = 0;
+  this->v = constrain(bound(vel, minVel, maxVel), -1*this->vMax, this->vMax) ;
   this->setVel(this->v,ch,rcLost);
+
+  // used in loop()
+  // double dv = vel - this->v;
+
+
+  
+  // if (abs(dv) < dv){
+  //   this->v = vel;
+  // } else {
+  //   this-> v= this->v + sign(dv) * MaxDelRPM;
+  // }
+  // this->v = constrain(this->v, -1*this->vMax, this->vMax);
+  // this->setVel(this->v,ch,rcLost);
 }
 
 // This function sends a Drive motor command - CAN layer, does not account for acceleration limits. Safety cutoff is done here

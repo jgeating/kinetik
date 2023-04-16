@@ -19,7 +19,7 @@ byte cDataLen;
 int mot = 0;
 
 void setup() {
-if(canInit(1, CAN_BPS_500K) == CAN_OK)
+if(canInit(1, CAN_BPS_1000K) == CAN_OK)
     Serial.print("CAN1: Initialized Successfully.\n\r");
   else
     Serial.print("CAN1: Initialization Failed.\n\r");  
@@ -27,7 +27,7 @@ if(canInit(1, CAN_BPS_500K) == CAN_OK)
 
 void loop() {
   delay(100);
-  int vels[] = {500, 0, 0, 0};
+  int vels[] = {500, 500, 500, 500};
   bool ext = true;
   for (int k = 0; k < 4; k++) {
     int vel = vels[k];
@@ -35,7 +35,7 @@ void loop() {
     for (int m = 0; m < len; m++) {
       cTxData1[len - m -1] = (int)vel >> 8 * m;
     }
-    int idd = mot+1 | CAN_PACKET_SET_RPM << 8;  // 6/22/2021, added +1 because I indexed at 1, not 0
+    int idd = mot | CAN_PACKET_SET_RPM << 8;  // 6/22/2021, added +1 because I indexed at 1, not 0, 4/9/2023, switched back, because of zero index
     canTx(1, idd, ext, cTxData1, len);
     delay(10);
   }

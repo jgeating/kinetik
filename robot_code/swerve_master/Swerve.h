@@ -22,9 +22,9 @@ struct SwerveImu
 // Robot level trajectory/control
 struct SwerveTrajectory
 {
-  double qd_max[3] = {30, 30, 30};  // max velocity: {m/s, m/s, rad/s}
-  double qdd_max[3] = {15, 15, 30}; // max acceleration: {m/s^2, m/s^2, rad/s^2}
-  double dz[3] = {.3, .3, .3};      // Deadzone velocity bounds: {m/s, m/s, rad/s}
+  double qd_max[3] = {40, 40, 40};  // max velocity: {m/s, m/s, rad/s}
+  double qdd_max[3] = {60, 60, 75}; // max acceleration: {m/s^2, m/s^2, rad/s^2}
+  double dz[3] = {.1, .1, .1};      // Deadzone velocity bounds: {m/s, m/s, rad/s}
   double qd_d[3] = {0, 0, 0};       // desired velocity, to send to planner
   double qdd_d[3] = {0, 0, 0};      // desired acceleration
   double input[3] = {0, 0, 0};      // hold inputs
