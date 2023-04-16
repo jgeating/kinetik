@@ -13,10 +13,13 @@ struct SwerveImu
   double x = 0;              // x angle of imu vest
   double y = 0;              // y angle of imu vest
   double z = 0;              // z angle of imu vest
-  double maxLean = M_PI / 8; // max lean angle, to scale to output
-  unsigned char getEulerCode[8] = {0xA7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  int canID = 22;
-  int IMU_bus = 1;
+  double maxLean = M_PI / 4; // max lean angle, to scale to output
+  double xZero = 0;          // Zero angle of vest. Set when calibrating starting lean angle
+  double yZero = 0;
+  double zZero = 0;
+
+  double zrobot = 0;        // imu yaw angle of robot 
+  double zZero_robot = 0;   // zero yaw angle of robot
 };
 
 // Robot level trajectory/control
@@ -102,7 +105,7 @@ struct RobotState
 {
   int ir[4] = {0, 0, 0, 0}; // status of IR sensor
   // looking from bottom, (+) to offset rotates wheel CCW
-  double irPos[4] = {254 - 180, 84 + 180, 73 + 180, 257 - 180}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
+  double irPos[4] = {90-19.2, 270-9.5, 270-19.2, 90-9.6}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
   int irPin[4] = {22, 24, 26, 28};                              // pins that ir sensors are hooked up to
   double mRPM[4] = {0, 0, 0, 0};                                // Speed of drive motors (pre gear stage). In eRPM, I think...
   double yRatio = YAW_GEAR_RATIO;                               // Yaw pulley stage ratio, >1

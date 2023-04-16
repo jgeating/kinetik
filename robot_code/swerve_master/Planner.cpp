@@ -92,7 +92,7 @@ int Planner::plan(double x_in, double y_in, double z_in) {
     case 1:  // zero IMU
       this->setZeros(input[0], input[1], input[2]);
       break;
-    case 2:  // or acceleration (2) control. inputs are in IMU lean angle
+    case 2:  // or velocity (2) control. inputs are in IMU lean angle
       // constrain inputs within to +/- pi
       for (int i = 0; i < 3; i++) {
         //this->input[i] = this->dewrap(input[i]);                          // dewrap input to make within ±180°
@@ -134,7 +134,6 @@ double min(double a, double b) {
 
 int Planner::calcFromVels() {
   double del_qd = 0;  // termporary variable for velocity error
-  double temp = 0;
   for (int i = 0; i < 3; i++) {
     // set desired to zero if within deadband
     // if (std::abs(this->qd_d[i]) < this->dband[i]) {
