@@ -8,8 +8,19 @@
 
 #define YAW_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
+struct Controller
+{
+  double p_x = 25;           // proportional gain for lean controller (forwards/backwards). Multiples into (m/s^2) / rad
+  double p_y = 100;           // proportional gain for lean controller (left/right). Multiples into (m/s^2) / rad
+  double p_z = 15;           // proportional gain for lean controller (rotation). Multiples into (rad/sec^2) / rad
+  double d_x = .05;             // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
+  double d_y = .3;          // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
+  double d_z = 0;             // derivative gain for lean controller. Multiples into (rad/s^2) / (rad/sec) 
+};
+
 struct SwerveImu
 {
+  //IMU stuff
   double x = 0;              // x angle of imu vest
   double y = 0;              // y angle of imu vest
   double z = 0;              // z angle of imu vest
@@ -17,8 +28,13 @@ struct SwerveImu
   double xZero = 0;          // Zero angle of vest. Set when calibrating starting lean angle
   double yZero = 0;
   double zZero = 0;
+  double xRate = 0;          // x rotation rate (direct gyro signal)
+  double yRate = 0;
+  double zRate = 0;
 
-  double zrobot = 0;        // imu yaw angle of robot 
+  // Robot stuff
+  double zRobot = 0;        // imu yaw angle of robot 
+  double zRobotRate = 0;    // yaw rate of robot (direct gyro signal)
   double zZero_robot = 0;   // zero yaw angle of robot
 };
 
