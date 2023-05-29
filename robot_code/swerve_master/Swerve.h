@@ -8,19 +8,34 @@
 
 #define YAW_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
-struct Controller
+struct pad_vars
 {
-  double p_x = 25;           // proportional gain for lean controller (forwards/backwards). Multiples into (m/s^2) / rad
-  double p_y = 100;           // proportional gain for lean controller (left/right). Multiples into (m/s^2) / rad
-  double p_z = 15;           // proportional gain for lean controller (rotation). Multiples into (rad/sec^2) / rad
-  double d_x = .05;             // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
-  double d_y = .3;          // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
-  double d_z = 0;             // derivative gain for lean controller. Multiples into (rad/s^2) / (rad/sec) 
+  float kp_x = 25;
+  float kp_y = 25;
+  float kp_z = 20;
+
+  float ki_x = 0;
+  float ki_y = 0;
+  float ki_z = 0;
+
+  float kd_x = 0;
+  float kd_y = 0;
+  float kd_z = 0;
+
+  float lag_x = 5; // number of lag samples
+  float lag_y = 5;
+  float lag_z = 5;
 };
 
-struct SwerveImu
+struct vest_vars
 {
-  //IMU stuff
+  double kp_x = 25;           // proportional gain for lean controller (forwards/backwards). Multiples into (m/s^2) / rad
+  double kp_y = 100;           // proportional gain for lean controller (left/right). Multiples into (m/s^2) / rad
+  double kp_z = 15;           // proportional gain for lean controller (rotation). Multiples into (rad/sec^2) / rad
+  double kd_x = .05;             // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
+  double kd_y = .3;          // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
+  double kd_z = 0;             // derivative gain for lean controller. Multiples into (rad/s^2) / (rad/sec) 
+
   double x = 0;              // x angle of imu vest
   double y = 0;              // y angle of imu vest
   double z = 0;              // z angle of imu vest
@@ -31,11 +46,15 @@ struct SwerveImu
   double xRate = 0;          // x rotation rate (direct gyro signal)
   double yRate = 0;
   double zRate = 0;
+};
 
-  // Robot stuff
+struct imu_vars
+{
+    // Robot stuff
   double zRobot = 0;        // imu yaw angle of robot 
   double zRobotRate = 0;    // yaw rate of robot (direct gyro signal)
   double zZero_robot = 0;   // zero yaw angle of robot
+
 };
 
 // Robot level trajectory/control
@@ -114,6 +133,7 @@ struct Modes
   bool debugRx = 0;     // whether or not to debug receiver
   bool debugTiming = 1; // whether or not to debug timing, look at loop lengths, etc.
   bool debugRiding = 0;
+  bool zeroing = 0;     // whether or not system is zeroing 
 };
 
 // Robot state stuff
