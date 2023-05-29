@@ -30,7 +30,9 @@ void Yaw::yawTo(double ang, int ch, int rcLost){
 
   // functions only used here and calibrate: motTo
   
-  double delPos = ang - this->yaw;
+  double delPos = ang - this->yaw;  // yaw error term
+  double qd_max = this->aMax * this->tInner / 1000000.0;  // Max allowable change in velocity per dt. For yaw control 
+  double acc = 1; // +1 for acceleration, -1 for deceleration. Independent of velocity polarity 
   if (abs(delPos) > 180){
     while (abs(delPos) > 180){
       delPos = delPos + sign(delPos) * -360.0;
@@ -40,12 +42,18 @@ void Yaw::yawTo(double ang, int ch, int rcLost){
   double minStop = abs(this->v)*tStop + this->aMax * tStop * tStop / 2; // minimum distance in which motor can stop  
   // double acc = constrain(abs(delPos)/rampDist, -1.0, 1.0) * aMax; // To prevent instabilities and numerical error buildup near zero
   // if (sign(delPos*v[mot]) == -1) v[mot] = 0;      // velocity should never be pushing away from setpoint, even if it breaks max accel limit
+  acc = ((abs(delPos) > minStop) - 0.5) * 2.0;  // takes a bool for acceleration direction and makes it 1 or -1
   if (abs(delPos) > minStop){
-    this->v = this->v + sign(delPos) * this->aMax * this->tInner / 1000000.0;    // Speed up or coast (coasting done with constrain)
+    this->v = this->v + sign(delPos) * qd_max;    // Speed up or coast (coasting done with constrain)
   } else {
-    this->v = this->v - sign(this->v) * this->aMax * this->tInner / 1000000.0;
+    if (abs(this->v) < qd_max) {
+      this->v = 0;  // If almost at zero, just set to zero. This prevents oscillating about zero with qd_max vel 
+    } else {
+      this->v = this->v - sign(this->v) * qd_max;   // Slow down
+    }
   }
   this->v = constrain(this->v, -1 * this->vMax, this->vMax);
+
   double delYaw = this->v * this->tInner / 1000000.0;
   this->yaw = (this->yaw + delYaw); 
   this->mPos = (this->mPos + delYaw * this->yRatio);

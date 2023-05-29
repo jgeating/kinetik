@@ -8,15 +8,53 @@
 
 #define YAW_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
-struct SwerveImu
+struct pad_vars
 {
+  float kp_x = 25;
+  float kp_y = 25;
+  float kp_z = 20;
+
+  float ki_x = 0;
+  float ki_y = 0;
+  float ki_z = 0;
+
+  float kd_x = 0;
+  float kd_y = 0;
+  float kd_z = 0;
+
+  float lag_x = 5; // number of lag samples
+  float lag_y = 5;
+  float lag_z = 5;
+};
+
+struct vest_vars
+{
+  double kp_x = 25;           // proportional gain for lean controller (forwards/backwards). Multiples into (m/s^2) / rad
+  double kp_y = 100;           // proportional gain for lean controller (left/right). Multiples into (m/s^2) / rad
+  double kp_z = 15;           // proportional gain for lean controller (rotation). Multiples into (rad/sec^2) / rad
+  double kd_x = .05;             // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
+  double kd_y = .3;          // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
+  double kd_z = 0;             // derivative gain for lean controller. Multiples into (rad/s^2) / (rad/sec) 
+
   double x = 0;              // x angle of imu vest
   double y = 0;              // y angle of imu vest
   double z = 0;              // z angle of imu vest
-  double maxLean = M_PI / 8; // max lean angle, to scale to output
-  unsigned char getEulerCode[8] = {0xA7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  int canID = 22;
-  int IMU_bus = 1;
+  double maxLean = M_PI / 4; // max lean angle, to scale to output
+  double xZero = 0;          // Zero angle of vest. Set when calibrating starting lean angle
+  double yZero = 0;
+  double zZero = 0;
+  double xRate = 0;          // x rotation rate (direct gyro signal)
+  double yRate = 0;
+  double zRate = 0;
+};
+
+struct imu_vars
+{
+    // Robot stuff
+  double zRobot = 0;        // imu yaw angle of robot 
+  double zRobotRate = 0;    // yaw rate of robot (direct gyro signal)
+  double zZero_robot = 0;   // zero yaw angle of robot
+
 };
 
 // Robot level trajectory/control
@@ -95,6 +133,7 @@ struct Modes
   bool debugRx = 0;     // whether or not to debug receiver
   bool debugTiming = 1; // whether or not to debug timing, look at loop lengths, etc.
   bool debugRiding = 0;
+  bool zeroing = 0;     // whether or not system is zeroing 
 };
 
 // Robot state stuff
@@ -102,7 +141,7 @@ struct RobotState
 {
   int ir[4] = {0, 0, 0, 0}; // status of IR sensor
   // looking from bottom, (+) to offset rotates wheel CCW
-  double irPos[4] = {254 - 180, 84 + 180, 73 + 180, 257 - 180}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
+  double irPos[4] = {90-19.2, 270-9.5, 270-19.2, 90-9.6}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
   int irPin[4] = {22, 24, 26, 28};                              // pins that ir sensors are hooked up to
   double mRPM[4] = {0, 0, 0, 0};                                // Speed of drive motors (pre gear stage). In eRPM, I think...
   double yRatio = YAW_GEAR_RATIO;                               // Yaw pulley stage ratio, >1
