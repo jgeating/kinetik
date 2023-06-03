@@ -40,7 +40,7 @@ double temp = 0;      // generic doubles for testing new things
 double temp2 = 0;
 double temp3 = 0;
 double dt = 0;        // loop period. Pulled from timing loop parameter, converted from usec to sec
-int bringupMode = 2;  // Bringup mode. set to -1 for normal operation, 0... are for bringing up specific axes for single DOF PID tuning 0 = X, 1 = Y, 1 = Z
+int bringupMode = -1;  // Bringup mode. set to -1 for normal operation, 0... are for bringing up specific axes for single DOF PID tuning 0 = X, 1 = Y, 1 = Z
 
 // IMU stuff
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);      // (id, address), default 0x29 or 0x28
@@ -237,10 +237,10 @@ void loop() {
       }
 
       if (modes.mode == 2){      // Begin force pad mode
-        double a_max = 10;      //limit max acceleration, m/s^2
+        double a_max = 15;      //limit max acceleration, m/s^2
         double v_max = 10;      //limit max velocity
-        double alpha_max = 10;  // limit max angular acceleration, rad/s^2
-        double w_max = 10;      // limit max angular velocity, rad/s
+        double alpha_max = 20;  // limit max angular acceleration, rad/s^2
+        double w_max = 30;      // limit max angular velocity, rad/s
 
         // swerveTrajectory.input[0] = 0;
         // swerveTrajectory.input[1] = 0;
@@ -253,14 +253,16 @@ void loop() {
 
         qdd_d = swerveTrajectory.input[0] * padVars.kp_x;
         qdd_d = constrain(qdd_d, -a_max, a_max);
-        qd_d += qdd_d * dt;
+        qd_d = swerveTrajectory.qd_d[0] + qdd_d * dt;
         qd_d = constrain(qd_d, -v_max, v_max);
+        // qd_d = constrain(swerveTrajectory.input[0] * padVars.kp_x, -v_max, v_max);   // velocity control. useful for bringup
         swerveTrajectory.qd_d[0] = qd_d;
 
         qdd_d = swerveTrajectory.input[1] * padVars.kp_y;
         qdd_d = constrain(qdd_d, -a_max, a_max);
-        qd_d += qdd_d * dt;
+        qd_d = swerveTrajectory.qd_d[1] + qdd_d * dt;
         qd_d = constrain(qd_d, -v_max, v_max);
+        // qd_d = constrain(swerveTrajectory.input[1] * padVars.kp_y, -v_max, v_max);   // velocity control. useful for bringup
         swerveTrajectory.qd_d[1] = qd_d;
 
         qd_d = swerveTrajectory.input[2] * padVars.kp_z;
@@ -280,16 +282,11 @@ void loop() {
         // swerveTrajectory.qd_d[2] = constrain(padz_pid->compute(), -w_max, w_max);
       }
 
-      if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300) { //
+      if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300) { // In an estop, immediately set velocities to zero, for now. May implement deceleration in the future 
         swerveTrajectory.qd_d[0] = 0;
         swerveTrajectory.qd_d[1] = 0;
         swerveTrajectory.qd_d[2] = 0;
       }
-      // swerveTrajectory.input[2] = 1;  // temporary hardcode to get angles correct for vest driven yaw testing, 4/16/2023
-
-      // sprintf(buff, "Inputs: x: %.4f°, y: %.4f°, z: %.4f°", swerveTrajectory.input[0], swerveTrajectory.input[1], swerveTrajectory.input[2]);
-      // Serial.println(buff);
-      // delay(100);
 
       // for (int i = 0; i < 3; i++) {
       //   swerveTrajectory.input[i] = swerveTrajectory.input[i];  // Convert inputs to radians
@@ -304,7 +301,7 @@ void loop() {
       if (modes.mode == 0){ // tele-op
         swerveKinematics.kinematics[i]->calc(swerveTrajectory.qd_d[0], swerveTrajectory.qd_d[1], swerveTrajectory.qd_d[2] * sign(robotState.yRatio));
       } else {  // IMU riding 
-        swerveKinematics.kinematics[i]->calc(swerveTrajectory.qd_d[1], swerveTrajectory.qd_d[0], swerveTrajectory.qd_d[2] * sign(robotState.yRatio));
+        swerveKinematics.kinematics[i]->calc(swerveTrajectory.qd_d[0], swerveTrajectory.qd_d[1], swerveTrajectory.qd_d[2] * sign(robotState.yRatio));
       }
     }
     endProfile(profiles.kinematics);
@@ -427,7 +424,9 @@ void loop() {
           break;
         case 2: 
           pads->calibrate();
-          qd_d = 0;
+          swerveTrajectory.qd_d[0] = 0;
+          swerveTrajectory.qd_d[1] = 0;
+          swerveTrajectory.qd_d[2] = 0;
           Serial.println("Pads zeroing");
           break;
         default: 
