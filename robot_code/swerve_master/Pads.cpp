@@ -32,7 +32,7 @@ void Pads::calcVector() {
   if (this->totalweight >= 0){
     this->x_out  = this->cart[4] + this->cart[5] - (this->cart[0] + this->cart[1]);  //  1 * (front right + back right - front left - back left)
     this->x_out  /= this->totalweight;
-    this->y_out  = this->cart[0] + this->cart[4] - (this->cart[1] + this->cart[5]);  //  1 * (front right + front left - back right - back left)
+    this->y_out  = this->cart[1] + this->cart[5] - (this->cart[0] + this->cart[4]);  //  1 * (front right + front left - back right - back left)
     this->y_out  /= this->totalweight;
     this->z_out  = this->cart[0] + this->cart[5] - (this->cart[1] + this->cart[4]);  // -1 * (front right + back left - back right - front left)
     this->z_out  /= this->totalweight;
