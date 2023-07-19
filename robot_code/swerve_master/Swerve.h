@@ -14,7 +14,7 @@ struct pad_vars
   // float kp_y = 20;
   // float kp_z = 15;
 
-  float kp_x = 30;
+  float kp_x = 80;
   float kp_y = 20;
   float kp_z = 50;
 
@@ -22,13 +22,14 @@ struct pad_vars
   float ki_y = 0;
   float ki_z = 0;
 
-  float kd_x = 0;
+  // should always be negative
+  float kd_x = -8;
   float kd_y = 0;
   float kd_z = 0;
 
-  float lag_x = 5; // number of lag samples
-  float lag_y = 5;
-  float lag_z = 5;
+  float lag_x = 10; // number of lag samples
+  float lag_y = 10;
+  float lag_z = 10;
 };
 
 struct vest_vars

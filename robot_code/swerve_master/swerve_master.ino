@@ -40,7 +40,7 @@ double temp = 0;      // generic doubles for testing new things
 double temp2 = 0;
 double temp3 = 0;
 double dt = 0;        // loop period. Pulled from timing loop parameter, converted from usec to sec
-int bringupMode = -1;  // Bringup mode. set to -1 for normal operation, 0... are for bringing up specific axes for single DOF PID tuning 0 = X, 1 = Y, 1 = Z
+int bringupMode = 0;  // Bringup mode. set to -1 for normal operation, 0... are for bringing up specific axes for single DOF PID tuning 0 = X, 1 = Y, 1 = Z
 
 // IMU stuff
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);      // (id, address), default 0x29 or 0x28
@@ -55,7 +55,7 @@ imu::Vector<3> eulerVest;  // Euler orientation of vest
 imu::Vector<3> gyroVest;   // Rotation rate of vest (raw gyro signal)
 
 //Instantiate structs
-SwerveTrajectory swerveTrajectory;
+SwerveTrajectory traj;
 imu_vars imuVars;
 vest_vars vestVars;
 pad_vars padVars;
@@ -139,10 +139,10 @@ void setup() {
   for (int i = 0; i < swerveKinematics.nWheels; i++) {
     robotState.irPos[i] = robotState.irPos[i];  // Correcting for polar coordinate frame
     yaw[i] = new Yaw(wMaxYaw, aMaxYaw, robotState.yRatio, loopTiming.tInner, can.len, i);
-    drive[i] = new Drive(swerveTrajectory.qd_max[0], swerveTrajectory.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i);
+    drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i);
     swerveKinematics.kinematics[i] = new Kinematics(RADIUS_SWERVE_ASSEMBLY, DEAD_ZONE, i);
   }
-  planner = new Planner(loopTiming.tInner, swerveTrajectory.qd_max[0], swerveTrajectory.qd_max[1], swerveTrajectory.qd_max[2], swerveTrajectory.qdd_max[0], swerveTrajectory.qdd_max[1], swerveTrajectory.qdd_max[2], swerveTrajectory.dz[0], swerveTrajectory.dz[1], swerveTrajectory.dz[2], modes.mode, vestVars.maxLean);
+  planner = new Planner(loopTiming.tInner, traj.qd_max[0], traj.qd_max[1], traj.qd_max[2], traj.qdd_max[0], traj.qdd_max[1], traj.qdd_max[2], traj.dz[0], traj.dz[1], traj.dz[2], modes.mode, vestVars.maxLean);
 
   // Set up pad pid classes
   dt = loopTiming.tInner/1000000.0;
@@ -150,6 +150,11 @@ void setup() {
   padx_pid = new PID(padVars.kp_x, padVars.ki_x, padVars.kd_x, dt, padVars.lag_x);
   pady_pid = new PID(padVars.kp_y, padVars.ki_y, padVars.kd_y, dt, padVars.lag_y);
   padz_pid = new PID(padVars.kp_z, padVars.ki_z, padVars.kd_z, dt, padVars.lag_z);
+
+  padx_pid->setSetpoint(0);   // setpoint = 0 means try to put human center of pressure at middle of footpad 
+  pady_pid->setSetpoint(0);
+  padz_pid->setSetpoint(0);
+
   Serial.println("Startup Complete.");
 }
 
@@ -179,28 +184,28 @@ void loop() {
       // PWM conditioning to send to planner
       double global_gain = float(constrain(pwmReceiver.channels[0]->getCh(), -500, 500) / 1000.0 + 0.5);  // Maps to 0.0 - 1.0 
       for (int k = 0; k < 3; k++) {
-        swerveTrajectory.input[k] = constrain(pwmReceiver.channels[k + 1]->getCh() / 500.0, -1.0, 1.0);
-        swerveTrajectory.input[k] = swerveTrajectory.input[k] * swerveTrajectory.qd_max[k];
+        traj.input[k] = constrain(pwmReceiver.channels[k + 1]->getCh() / 500.0, -1.0, 1.0);
+        traj.input[k] = traj.input[k] * traj.qd_max[k];
         if (k < 2) {
-          swerveTrajectory.input[k] = swerveTrajectory.input[k] * global_gain;  // Scale up to max velocity using left stick vertical (throttle, no spring center)
+          traj.input[k] = traj.input[k] * global_gain;  // Scale up to max velocity using left stick vertical (throttle, no spring center)
         } else {
-          swerveTrajectory.input[k] = swerveTrajectory.input[k] * (global_gain + 1.0) / 2.0;  // for yaw, only scale between 50% and 100%, not 0 and 100%
+          traj.input[k] = traj.input[k] * (global_gain + 1.0) / 2.0;  // for yaw, only scale between 50% and 100%, not 0 and 100%
         }
       }
       if (foc == false) {
-        planner->plan(swerveTrajectory.input[0], swerveTrajectory.input[1], -swerveTrajectory.input[2]);
+        planner->plan(traj.input[0], traj.input[1], -traj.input[2]);
       } else {
         loopTiming.timer[1] = micros();
         euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
         alpha = euler.x() * pi / 180.0;
         loopTiming.timer[2] = micros();
-        planner->plan_world(swerveTrajectory.input[0], swerveTrajectory.input[1], -swerveTrajectory.input[2], alpha);
+        planner->plan_world(traj.input[0], traj.input[1], -traj.input[2], alpha);
       }
 
       // Get results from planner
-      swerveTrajectory.qd_d[0] = planner->getTargetVX();
-      swerveTrajectory.qd_d[1] = planner->getTargetVY();
-      swerveTrajectory.qd_d[2] = planner->getTargetVZ();
+      traj.qd_d[0] = planner->getTargetVX();
+      traj.qd_d[1] = planner->getTargetVY();
+      traj.qd_d[2] = planner->getTargetVZ();
       endProfile(profiles.mode0);
 
       // *************************** riding modes ************************
@@ -227,13 +232,13 @@ void loop() {
         imuVars.zRobotRate = gyroRobot.x();
 
         // Set controller inputs
-        swerveTrajectory.input[0] = vestVars.kp_x * (vestVars.x - vestVars.xZero);  // calculate proportional term
-        swerveTrajectory.input[1] = vestVars.kp_y * (vestVars.y - vestVars.yZero);
+        traj.input[0] = vestVars.kp_x * (vestVars.x - vestVars.xZero);  // calculate proportional term
+        traj.input[1] = vestVars.kp_y * (vestVars.y - vestVars.yZero);
         double del_th = (vestVars.z - vestVars.zZero) - (imuVars.zRobot - imuVars.zZero_robot);
         while (abs(del_th) > M_PI / 2) {
           del_th = del_th - sign(del_th) * (M_PI * 2);
         }
-        swerveTrajectory.input[2] = vestVars.kp_z * del_th;               // calculate proportional term
+        traj.input[2] = vestVars.kp_z * del_th;               // calculate proportional term
       }
 
       if (modes.mode == 2){      // Begin force pad mode
@@ -242,56 +247,35 @@ void loop() {
         double alpha_max = 20;  // limit max angular acceleration, rad/s^2
         double w_max = 30;      // limit max angular velocity, rad/s
 
-        // swerveTrajectory.input[0] = 0;
-        // swerveTrajectory.input[1] = 0;
-        // swerveTrajectory.input[2] = 0;
-
         pads->calcVector(); 
-        swerveTrajectory.input[0] = pads->getX();
-        swerveTrajectory.input[1] = pads->getY();
-        swerveTrajectory.input[2] = pads->getZ();
+        padx_pid->setInput(pads->getX());
+        pady_pid->setInput(pads->getY());
+        padz_pid->setInput(pads->getZ());
 
-        qdd_d = swerveTrajectory.input[0] * padVars.kp_x;
-        qdd_d = constrain(qdd_d, -a_max, a_max);
-        qd_d = swerveTrajectory.qd_d[0] + qdd_d * dt;
-        qd_d = constrain(qd_d, -v_max, v_max);
-        // qd_d = constrain(swerveTrajectory.input[0] * padVars.kp_x, -v_max, v_max);   // velocity control. useful for bringup
-        swerveTrajectory.qd_d[0] = qd_d;
+        // qdd_d = traj.input[0] * padVars.kp_x;    // driving without PID controller, just P controller
+        // qdd_d = constrain(qdd_d, -a_max, a_max);
+        traj.qdd_d[0] = constrain(padx_pid->compute(), -a_max, a_max);
+        traj.qd_d[0] = constrain(traj.qd_d[0] + traj.qdd_d[0] * dt, -v_max, v_max);
+        // qd_d = constrain(traj.input[0] * padVars.kp_x, -v_max, v_max);   // velocity control. useful for bringup
 
-        qdd_d = swerveTrajectory.input[1] * padVars.kp_y;
-        qdd_d = constrain(qdd_d, -a_max, a_max);
-        qd_d = swerveTrajectory.qd_d[1] + qdd_d * dt;
-        qd_d = constrain(qd_d, -v_max, v_max);
-        // qd_d = constrain(swerveTrajectory.input[1] * padVars.kp_y, -v_max, v_max);   // velocity control. useful for bringup
-        swerveTrajectory.qd_d[1] = qd_d;
+        // qdd_d = traj.input[1] * padVars.kp_y;    // driving without PID controller, just P controller
+        // qdd_d = constrain(qdd_d, -a_max, a_max);
 
-        qd_d = swerveTrajectory.input[2] * padVars.kp_z;
-        qd_d = constrain(qd_d, -w_max, w_max);
-        swerveTrajectory.qd_d[2] = qd_d;
+        // traj.qdd_d[1] = constrain(pady_pid->compute(), -a_max, a_max);
+        // traj.qd_d[1] = constrain(traj.qd_d[1] + traj.qdd_d[1] * dt, -v_max, v_max);
+        traj.qd_d[1] = constrain(pady_pid->compute(), -v_max, v_max);
+        // qd_d = constrain(traj.input[1] * padVars.kp_y, -v_max, v_max);   // velocity control. useful for bringup
 
-        // padx_pid->setInput(swerveTrajectory.qd_d[0]);  // Give current velocity as input
-        // pady_pid->setInput(swerveTrajectory.qd_d[1]);
-        // padz_pid->setInput(swerveTrajectory.qd_d[2]);
 
-        // padx_pid->setSetpoint(swerveTrajectory.input[0]);
-        // pady_pid->setSetpoint(swerveTrajectory.input[1]);
-        // padz_pid->setSetpoint(swerveTrajectory.input[2]);
-
-        // swerveTrajectory.qd_d[0] = constrain(padx_pid->compute(), -v_max, v_max);
-        // swerveTrajectory.qd_d[1] = constrain(pady_pid->compute(), -v_max, v_max);
-        // swerveTrajectory.qd_d[2] = constrain(padz_pid->compute(), -w_max, w_max);
+        traj.qd_d[2] = constrain(padz_pid->compute(), -w_max, w_max);
       }
 
       if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300) { // In an estop, immediately set velocities to zero, for now. May implement deceleration in the future 
-        swerveTrajectory.qd_d[0] = 0;
-        swerveTrajectory.qd_d[1] = 0;
-        swerveTrajectory.qd_d[2] = 0;
+        traj.qd_d[0] = 0;
+        traj.qd_d[1] = 0;
+        traj.qd_d[2] = 0;
       }
-
-      // for (int i = 0; i < 3; i++) {
-      //   swerveTrajectory.input[i] = swerveTrajectory.input[i];  // Convert inputs to radians
-      // }
-      // planner->plan(swerveTrajectory.input[0], swerveTrajectory.input[1], swerveTrajectory.input[2]);
+      // planner->plan(traj.input[0], traj.input[1], traj.input[2]);
       endProfile(profiles.modeOther);
     }
 
@@ -299,9 +283,9 @@ void loop() {
 
     for (int i = 0; i < swerveKinematics.nWheels; i++) {
       if (modes.mode == 0){ // tele-op
-        swerveKinematics.kinematics[i]->calc(swerveTrajectory.qd_d[0], swerveTrajectory.qd_d[1], swerveTrajectory.qd_d[2] * sign(robotState.yRatio));
+        swerveKinematics.kinematics[i]->calc(traj.qd_d[0], traj.qd_d[1], traj.qd_d[2] * sign(robotState.yRatio));
       } else {  // IMU riding 
-        swerveKinematics.kinematics[i]->calc(swerveTrajectory.qd_d[0], swerveTrajectory.qd_d[1], swerveTrajectory.qd_d[2] * sign(robotState.yRatio));
+        swerveKinematics.kinematics[i]->calc(traj.qd_d[0], traj.qd_d[1], traj.qd_d[2] * sign(robotState.yRatio));
       }
     }
     endProfile(profiles.kinematics);
@@ -334,28 +318,27 @@ void loop() {
             delayMicroseconds(can.driveCanDelay);
             break;
           case 0:   // 1 = x axis bringup
-            yaw[i]->yawTo(0, eStopChannel, pwmReceiver.rcLost);
+            yaw[i]->yawTo(180, eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
-            drive[i]->setVel(swerveTrajectory.qd_d[0], eStopChannel, pwmReceiver.rcLost);
+            drive[i]->setVel(traj.qd_d[0], eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
             break;
           case 1: // 2 = y axis bringup
             yaw[i]->yawTo(-90, eStopChannel, pwmReceiver.rcLost);  // should point forwards
             delayMicroseconds(can.driveCanDelay);
-            drive[i]->setVel(swerveTrajectory.qd_d[1], eStopChannel, pwmReceiver.rcLost);
+            drive[i]->setVel(traj.qd_d[1], eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
             break;
           case 2: // 3 = z axis bringup
             yaw[i]->yawTo(-45 + i * -90, eStopChannel, pwmReceiver.rcLost); // should point CCW
             delayMicroseconds(can.driveCanDelay);
-            drive[i]->setVel(swerveTrajectory.qd_d[2], eStopChannel, pwmReceiver.rcLost);
+            drive[i]->setVel(traj.qd_d[2], eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
             break;
           default: 
             Serial.println("error parsing bringup mode. This is a bug");
             break;
         }
-        
       }
     }
 
@@ -365,13 +348,13 @@ void loop() {
       // Serial.print("Mode: ");
       // Serial.println(modes.mode);
       // Serial.print("X_d:");
-      // Serial.print(swerveTrajectory.input[0]);
+      // Serial.print(traj.input[0]);
       // Serial.print(",");
       // Serial.print("Y_d:");
-      // Serial.print(swerveTrajectory.input[1]);
+      // Serial.print(traj.input[1]);
       // Serial.print(",");
       // Serial.print("Z_d:");
-      // Serial.println(swerveTrajectory.input[2]);
+      // Serial.println(traj.input[2]);
       // pads->printDebug();
     }
     endProfile(profiles.updateMotorSpeeds);
@@ -390,9 +373,9 @@ void loop() {
       calMotor(can);  // Calibrate motors
     }
     if (pwmReceiver.channels[pwmReceiver.estop_ch]->getCh() < -400 && pwmReceiver.channels[pwmReceiver.estop_ch]->getCh() < 100) {  // calibrate force pads, only if steering motoors are off
-      // swerveTrajectory.qd_d[0] = 0;
-      // swerveTrajectory.qd_d[1] = 0;
-      // swerveTrajectory.qd_d[2] = 0;
+      // traj.qd_d[0] = 0;
+      // traj.qd_d[1] = 0;
+      // traj.qd_d[2] = 0;
     }
     if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < -300) {  // default mode is tele-op, blue stick top position
       if (modes.mode != 0) {
@@ -424,9 +407,9 @@ void loop() {
           break;
         case 2: 
           pads->calibrate();
-          swerveTrajectory.qd_d[0] = 0;
-          swerveTrajectory.qd_d[1] = 0;
-          swerveTrajectory.qd_d[2] = 0;
+          traj.qd_d[0] = 0;
+          traj.qd_d[1] = 0;
+          traj.qd_d[2] = 0;
           Serial.println("Pads zeroing");
           break;
         default: 
@@ -437,8 +420,8 @@ void loop() {
     // Debug related
     if (modes.debugRiding) {
       Serial.println("***********");
-      Serial.println(swerveTrajectory.qd_d[0]);
-      Serial.println(swerveTrajectory.qd_d[1]);
+      Serial.println(traj.qd_d[0]);
+      Serial.println(traj.qd_d[1]);
       delay(20);
     }
   }

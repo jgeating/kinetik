@@ -45,8 +45,14 @@ float PID::compute() {
   derivative = (input - lastInput) / sampleTime;
   updateDerivativeLagFilter();
 
+  float deriv_avg = 0;
+  for (int i = lagFilterSize - 1; i > 0; i--) {
+    deriv_avg += derivativeLagFilter[i];
+  }
+  deriv_avg = deriv_avg / lagFilterSize;
+
   // Compute PID output
-  output = Kp * error + Ki * errorSum + Kd * derivativeLagFilter[0];
+  output = Kp * error + Ki * errorSum + Kd * deriv_avg;
 
   // Store current input as last input for next iteration
   lastInput = input;
