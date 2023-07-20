@@ -53,6 +53,7 @@ imu::Vector<3> euler;      // Orientation of robot
 imu::Vector<3> gyroRobot;  // Rotation rate of robot (raw gyro signal)
 imu::Vector<3> eulerVest;  // Euler orientation of vest
 imu::Vector<3> gyroVest;   // Rotation rate of vest (raw gyro signal)
+Drive::Type types[] = { Drive::Type::VESC, Drive::Type::VESC, Drive::Type::VESC, Drive::Type::VESC };
 
 //Instantiate structs
 SwerveTrajectory traj;
@@ -139,7 +140,7 @@ void setup() {
   for (int i = 0; i < swerveKinematics.nWheels; i++) {
     robotState.irPos[i] = robotState.irPos[i];  // Correcting for polar coordinate frame
     yaw[i] = new Yaw(wMaxYaw, aMaxYaw, robotState.yRatio, loopTiming.tInner, can.len, i);
-    drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i);
+    drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i, types[i]);
     swerveKinematics.kinematics[i] = new Kinematics(RADIUS_SWERVE_ASSEMBLY, DEAD_ZONE, i);
   }
   planner = new Planner(loopTiming.tInner, traj.qd_max[0], traj.qd_max[1], traj.qd_max[2], traj.qdd_max[0], traj.qdd_max[1], traj.qdd_max[2], traj.dz[0], traj.dz[1], traj.dz[2], modes.mode, vestVars.maxLean);
