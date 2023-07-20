@@ -1,19 +1,19 @@
-#include "DueCANLayer.h";      // CAN library for CAN shield
+#include "src/DueCANLayer.h";      // CAN library for CAN shield
 #include <math.h>;             // Math functions
-#include "Kinematics.h";       // wheel level kinematics/trigonometry
-#include "Planner.h";          // robot level planning
-#include "utils.h";            // Basic utils like more powerful serial
-#include "Yaw.h";              // For controlling steering actuator
-#include "Pads.h";             // For interfacing with weight pads
-#include "Drive.h";            // For controlling drive motors
+#include "src/Kinematics.h";       // wheel level kinematics/trigonometry
+#include "src/Planner.h";          // robot level planning
+#include "src/utils.h";            // Basic utils like more powerful serial
+#include "src/Yaw.h";              // For controlling steering actuator
+#include "src/Pads.h";             // For interfacing with weight pads
+#include "src/Drive.h";            // For controlling drive motors
 #include <Wire.h>;             // For accessing native Arduino I2C functions
-#include "Adafruit_Sensor.h"   // Downloaded library for IMU stuff
-#include "Adafruit_BNO055.h"   // Downloaded library for IMU stuff
-#include "utility/imumaths.h"  // Downloaded library for IMU stuff
-#include "Swerve.h";
-#include "Performance.h";
-#include "PID.h";              // For PID controllers
-#include "LowPassFilter.cpp";  // Low pass filter class
+#include "src/Adafruit_Sensor.h"   // Downloaded library for IMU stuff
+#include "src/Adafruit_BNO055.h"   // Downloaded library for IMU stuff
+#include "src/utility/imumaths.h"  // Downloaded library for IMU stuff
+#include "src/Swerve.h";
+#include "src/Performance.h";
+#include "src/PID.h";              // For PID controllers
+#include "src/LowPassFilter.cpp";  // Low pass filter class
 
 const int CHANNEL_PIN[] = {
   38,  // left stick vertical, forward = (+)
