@@ -26,7 +26,7 @@ if(canInit(1, CAN_BPS_1000K) == CAN_OK)
 }
 
 void loop() {
-  delay(100);
+  delay(50);
   int vels[] = {500, 500, 500, 500};
   bool ext = true;
   for (int k = 0; k < 4; k++) {
