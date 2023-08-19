@@ -22,7 +22,7 @@ void setup() {
     Serial.print("CAN1: Initialization Failed.\n\r");
   
   if (canInit(0, CAN_BPS_1000K) == CAN_OK)
-    Serial.print("CAN: Initialized Successfully.\n\r");
+    Serial.print("CAN0: Initialized Successfully.\n\r");
   else
     Serial.print("CAN0: Initialization Failed.\n\r");
 
@@ -30,7 +30,7 @@ void setup() {
   ext = false;
   byte odrive_data[4] = { 0x08, 0x00, 0x00, 0x00 };
 
-  canTx(1, idd, ext, odrive_data, sizeof(odrive_data));
+  canTx(0, idd, ext, odrive_data, sizeof(odrive_data));
   delay(1000);
 }
 
@@ -64,10 +64,10 @@ void printMessage() {
 }
 
 void loop() {
-  delay(100);
+  // delay(100);
   printMessage();
-  float velocity = 2.0;
-  float torqueFF = 1.0;
+  float velocity = .7;
+  float torqueFF = 0.0;
 
   byte odrive_data_hardcode[] = { 0x00, 0x00, 0x80, 0x3f, 0x00, 0x00, 0x00, 0x00 };
   byte odrive_data[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -86,6 +86,6 @@ void loop() {
 
   int idd = mot << 5 | 0x0d;  // 6/22/2021, added +1 because I indexed at 1, not 0, 4/9/2023, switched back, because of zero index
 
-  canTx(1, idd, ext, odrive_data_big_endian, sizeof(odrive_data));
+  canTx(0, idd, ext, odrive_data_big_endian, sizeof(odrive_data));
   delay(10);
 }
