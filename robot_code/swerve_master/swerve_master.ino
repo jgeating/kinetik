@@ -1,19 +1,19 @@
-#include "DueCANLayer.h";      // CAN library for CAN shield
+#include "src/DueCANLayer.h";      // CAN library for CAN shield
 #include <math.h>;             // Math functions
-#include "Kinematics.h";       // wheel level kinematics/trigonometry
-#include "Planner.h";          // robot level planning
-#include "utils.h";            // Basic utils like more powerful serial
-#include "Yaw.h";              // For controlling steering actuator
-#include "Pads.h";             // For interfacing with weight pads
-#include "Drive.h";            // For controlling drive motors
+#include "src/Kinematics.h";       // wheel level kinematics/trigonometry
+#include "src/Planner.h";          // robot level planning
+#include "src/utils.h";            // Basic utils like more powerful serial
+#include "src/Yaw.h";              // For controlling steering actuator
+#include "src/Pads.h";             // For interfacing with weight pads
+#include "src/Drive.h";            // For controlling drive motors
 #include <Wire.h>;             // For accessing native Arduino I2C functions
-#include "Adafruit_Sensor.h"   // Downloaded library for IMU stuff
-#include "Adafruit_BNO055.h"   // Downloaded library for IMU stuff
-#include "utility/imumaths.h"  // Downloaded library for IMU stuff
-#include "Swerve.h";
-#include "Performance.h";
-#include "PID.h";              // For PID controllers
-#include "LowPassFilter.cpp";  // Low pass filter class
+#include "src/Adafruit_Sensor.h"   // Downloaded library for IMU stuff
+#include "src/Adafruit_BNO055.h"   // Downloaded library for IMU stuff
+#include "src/utility/imumaths.h"  // Downloaded library for IMU stuff
+#include "src/Swerve.h";
+#include "src/Performance.h";
+#include "src/PID.h";              // For PID controllers
+#include "src/LowPassFilter.cpp";  // Low pass filter class
 
 const int CHANNEL_PIN[] = {
   38,  // left stick vertical, forward = (+)
@@ -53,6 +53,7 @@ imu::Vector<3> euler;      // Orientation of robot
 imu::Vector<3> gyroRobot;  // Rotation rate of robot (raw gyro signal)
 imu::Vector<3> eulerVest;  // Euler orientation of vest
 imu::Vector<3> gyroVest;   // Rotation rate of vest (raw gyro signal)
+Drive::Type types[] = { Drive::Type::VESC, Drive::Type::VESC, Drive::Type::VESC, Drive::Type::VESC };
 
 //Instantiate structs
 SwerveTrajectory traj;
@@ -139,7 +140,7 @@ void setup() {
   for (int i = 0; i < swerveKinematics.nWheels; i++) {
     robotState.irPos[i] = robotState.irPos[i];  // Correcting for polar coordinate frame
     yaw[i] = new Yaw(wMaxYaw, aMaxYaw, robotState.yRatio, loopTiming.tInner, can.len, i);
-    drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i);
+    drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i, types[i]);
     swerveKinematics.kinematics[i] = new Kinematics(RADIUS_SWERVE_ASSEMBLY, DEAD_ZONE, i);
   }
   planner = new Planner(loopTiming.tInner, traj.qd_max[0], traj.qd_max[1], traj.qd_max[2], traj.qdd_max[0], traj.qdd_max[1], traj.qdd_max[2], traj.dz[0], traj.dz[1], traj.dz[2], modes.mode, vestVars.maxLean);
