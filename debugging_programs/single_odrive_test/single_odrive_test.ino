@@ -30,7 +30,7 @@ void setup() {
   ext = false;
   byte odrive_data[4] = { 0x08, 0x00, 0x00, 0x00 };
 
-  canTx(0, idd, ext, odrive_data, sizeof(odrive_data));
+  canTx(1, idd, ext, odrive_data, sizeof(odrive_data));
   delay(1000);
 }
 
@@ -86,6 +86,6 @@ void loop() {
 
   int idd = mot << 5 | 0x0d;  // 6/22/2021, added +1 because I indexed at 1, not 0, 4/9/2023, switched back, because of zero index
 
-  canTx(0, idd, ext, odrive_data_big_endian, sizeof(odrive_data));
+  canTx(1, idd, ext, odrive_data_big_endian, sizeof(odrive_data));
   delay(10);
 }

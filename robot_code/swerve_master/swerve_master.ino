@@ -31,7 +31,7 @@ const int CHANNEL_PIN[] = {
 #define pi 3.14159265358979
 #define BNO055_SAMPLERATE_DELAY_MS (10)
 #define TELEMETRY_REPORT_PERIOD 500000
-
+ 
 // General stuff, controls 
 char buff[100] = "";  // For various sprintf print outs
 double qd_d = 0;    // temporary used for testing vest acceleration control. Stores instantaneous velocity
@@ -40,7 +40,7 @@ double temp = 0;      // generic doubles for testing new things
 double temp2 = 0;
 double temp3 = 0;
 double dt = 0;        // loop period. Pulled from timing loop parameter, converted from usec to sec
-int bringupMode = 0;  // Bringup mode. set to -1 for normal operation, 0... are for bringing up specific axes for single DOF PID tuning 0 = X, 1 = Y, 1 = Z
+int bringupMode = -1;  // Bringup mode. set to -1 for normal operation, 0... are for bringing up specific axes for single DOF PID tuning 0 = X, 1 = Y, 2 = Z
 
 // IMU stuff
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);      // (id, address), default 0x29 or 0x28
@@ -53,7 +53,7 @@ imu::Vector<3> euler;      // Orientation of robot
 imu::Vector<3> gyroRobot;  // Rotation rate of robot (raw gyro signal)
 imu::Vector<3> eulerVest;  // Euler orientation of vest
 imu::Vector<3> gyroVest;   // Rotation rate of vest (raw gyro signal)
-Drive::Type types[] = { Drive::Type::VESC, Drive::Type::VESC, Drive::Type::VESC, Drive::Type::VESC };
+Drive::Type types[] = { Drive::Type::VESC, Drive::Type::VESC, Drive::Type::ODRIVE, Drive::Type::VESC };
 
 //Instantiate structs
 SwerveTrajectory traj;
@@ -194,7 +194,7 @@ void loop() {
         }
       }
       if (foc == false) {
-        planner->plan(traj.input[0], traj.input[1], -traj.input[2]);
+        planner->plan(traj.input[0], traj.input[1], traj.input[2]);
       } else {
         loopTiming.timer[1] = micros();
         euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
@@ -256,17 +256,16 @@ void loop() {
         // qdd_d = traj.input[0] * padVars.kp_x;    // driving without PID controller, just P controller
         // qdd_d = constrain(qdd_d, -a_max, a_max);
         traj.qdd_d[0] = constrain(padx_pid->compute(), -a_max, a_max);
-        traj.qd_d[0] = constrain(traj.qd_d[0] + traj.qdd_d[0] * dt, -v_max, v_max);
+        traj.qd_d[0] = constrain(traj.qd_d[0] - traj.qdd_d[0] * dt, -v_max, v_max);
         // qd_d = constrain(traj.input[0] * padVars.kp_x, -v_max, v_max);   // velocity control. useful for bringup
-
         // qdd_d = traj.input[1] * padVars.kp_y;    // driving without PID controller, just P controller
         // qdd_d = constrain(qdd_d, -a_max, a_max);
 
         // traj.qdd_d[1] = constrain(pady_pid->compute(), -a_max, a_max);
         // traj.qd_d[1] = constrain(traj.qd_d[1] + traj.qdd_d[1] * dt, -v_max, v_max);
-        traj.qd_d[1] = constrain(pady_pid->compute(), -v_max, v_max);
+        traj.qd_d[1] = 0;
+        // traj.qd_d[1] = constrain(pady_pid->compute(), -v_max, v_max);
         // qd_d = constrain(traj.input[1] * padVars.kp_y, -v_max, v_max);   // velocity control. useful for bringup
-
 
         traj.qd_d[2] = constrain(padz_pid->compute(), -w_max, w_max);
       }
@@ -284,9 +283,9 @@ void loop() {
 
     for (int i = 0; i < swerveKinematics.nWheels; i++) {
       if (modes.mode == 0){ // tele-op
-        swerveKinematics.kinematics[i]->calc(traj.qd_d[0], traj.qd_d[1], traj.qd_d[2] * sign(robotState.yRatio));
+        swerveKinematics.kinematics[i]->calc(traj.qd_d[0], traj.qd_d[1], -traj.qd_d[2] * sign(robotState.yRatio));
       } else {  // IMU riding 
-        swerveKinematics.kinematics[i]->calc(traj.qd_d[0], traj.qd_d[1], traj.qd_d[2] * sign(robotState.yRatio));
+        swerveKinematics.kinematics[i]->calc(traj.qd_d[0], traj.qd_d[1], -traj.qd_d[2] * sign(robotState.yRatio));
       }
     }
     endProfile(profiles.kinematics);

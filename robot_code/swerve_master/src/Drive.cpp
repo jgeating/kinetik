@@ -19,6 +19,17 @@ Drive::Drive(double vMax, double aMax, double dRatio, double tInner, int len, in
 
   // Kinematics and constants calculations
   MaxDelRPM = aMax * tInner / 1000000.0;  //need to change variables
+
+  if (this->type == Drive::Type::ODRIVE) {
+    MaxDelRPM *= 1.0 / (this->odriveRatio);
+    this->vMax *= 10 * this->odriveRatio;
+
+    int idd = this->mot << 5 | 0x07;  // idd is the id of the CAN packet
+    bool ext = false;
+    byte odrive_data[4] = { 0x08, 0x00, 0x00, 0x00 };
+
+    canTx(1, idd, ext, odrive_data, sizeof(odrive_data));
+  }
 }
 
 
@@ -50,6 +61,7 @@ void Drive::slewVel(double vel, int ch, int rcLost) {
 
 // This function sends a Drive motor command - CAN layer, does not account for acceleration limits. Safety cutoff is done here
 void Drive::setVel(double vel, int ch, int rcLost) {  //vel is in erpm
+  //vel = -vel;   // added 9/2/2023 because robot direction was reversed 
 
   // used in Drive()
   bool ext = true;
@@ -62,7 +74,25 @@ void Drive::setVel(double vel, int ch, int rcLost) {  //vel is in erpm
       canTx(1, idd, ext, this->cTxData1, len);
     }
   } else {
-    if (this == 3 )
+
+    bool eStop = !(ch > 400 && !rcLost);
+
+    // erpm to rpm
+    float velocity = eStop ? 0 : vel * this->odriveRatio;
+    float torqueFF = 0.0;
+
+    byte odrive_data[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+    memcpy(odrive_data, &velocity, sizeof(velocity));
+    memcpy(odrive_data + sizeof(velocity), &torqueFF, sizeof(torqueFF));
+
+
+    int idd = this->mot << 5 | 0x0d;
+
+    // Serial.println("vel:");
+    // Serial.println(velocity);
+
+    canTx(1, idd, false, odrive_data, sizeof(odrive_data));
   }
 }
 
@@ -70,7 +100,7 @@ void Drive::setAcc(double acc, int ch, int rcLost) {
   // used in loop()
   double dv = acc * tInner / 1000000.0;
 
-  if (this->type == Drive::Type::VESC) {
+  if (true || this->type == Drive::Type::VESC) {
     if (abs(dv) < MaxDelRPM) {
       this->v = this->v + dv;
     } else {
@@ -79,7 +109,6 @@ void Drive::setAcc(double acc, int ch, int rcLost) {
     this->v = constrain(this->v, -1 * this->vMax, this->vMax);
     this->setVel(this->v, ch, rcLost);
   } else {
-
   }
 }
 

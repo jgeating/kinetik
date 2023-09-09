@@ -15,6 +15,7 @@ class Drive
     double dRatio;      // scaling factor from physical rad/sec to erpms
     double tInner;      // length of inner loop, microseconds
     double MaxDelRPM;   // Maximum change per loop
+    double odriveRatio = 2;
     byte cTxData1[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     int len;
     int mot;
