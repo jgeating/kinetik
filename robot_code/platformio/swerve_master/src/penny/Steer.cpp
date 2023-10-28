@@ -1,4 +1,4 @@
-#include "penny/Yaw.h"
+#include "penny/Steer.h"
 #include "DueCANLayer.h"
 #include <math.h>
 #include "shared/utils.h"
@@ -6,7 +6,7 @@
 extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte* cData, byte cDataLen);
 extern byte canRx(byte cPort, long* lMsgID, bool* bExtendedFormat, byte* cData, byte* cDataLen);
 
-Yaw::Yaw(double vMax, double aMax, double yRatio, double tInner, int len, int mot) {
+Steer::Steer(double vMax, double aMax, double yRatio, double tInner, int len, int mot) {
   this->v = 0;
   this->vMax = vMax;
   this->aMax = aMax;
@@ -20,7 +20,7 @@ Yaw::Yaw(double vMax, double aMax, double yRatio, double tInner, int len, int mo
 }
 
 // This function traverses to a yaw position, while abiding by acceleration and velocity limits
-void Yaw::yawTo(double ang, int ch, int rcLost){  
+void Steer::yawTo(double ang, int ch, int rcLost){  
 
   // global variables only used here: v, aMax, vMax, yRatio
 
@@ -61,7 +61,7 @@ void Yaw::yawTo(double ang, int ch, int rcLost){
 }
 
 // This function sends a yaw motor command - CAN layer, does not account for acceleration limits. Safety cutoff is done here
-void Yaw::motTo(double ang, int ch, int rcLost){
+void Steer::motTo(double ang, int ch, int rcLost){
   //this->mPos = ang;
   // used in yawTo(), calMotor()
   bool ext = false;
@@ -84,30 +84,30 @@ void Yaw::motTo(double ang, int ch, int rcLost){
   }
 }
 
-void Yaw::setYaw(double yaw) {
+void Steer::setYaw(double yaw) {
   this->yaw = yaw;
 }
 
-void Yaw::setMPos(double mPos) {
+void Steer::setMPos(double mPos) {
   this->mPos = mPos;
 }
 
-void Yaw::setVel(double v) {
+void Steer::setVel(double v) {
   this->v = v;
 }
 
-void Yaw::setHoming(byte homing) {
+void Steer::setHoming(byte homing) {
   this->homing = homing;
 }
 
-double Yaw::getYaw() {
+double Steer::getYaw() {
   return this->yaw;
 }
 
-double Yaw::getMPos() {
+double Steer::getMPos() {
   return this->mPos;
 }
 
-byte Yaw::getHoming() {
+byte Steer::getHoming() {
   return this->homing;
 }

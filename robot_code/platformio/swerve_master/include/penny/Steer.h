@@ -1,18 +1,18 @@
 #include "DueCANLayer.h"
 #include <math.h>
 
-#ifndef _YAW_
-#define _YAW_
+#ifndef _STEER_
+#define _STEER_
 
 
-class Yaw
+class Steer
 {
   private:
-    double v; // Current velocity of yaw motors, degrees/second
-    double vMax;  // Max angular velocity of yaw motor, in motor frame, degrees/second
-    double aMax;  // Max angular acceleration of yaw motor, in motor frame, degrees/second^2
+    double v; // Current velocity of steer motors, degrees/second
+    double vMax;  // Max angular velocity of steer motor, in motor frame, degrees/second
+    double aMax;  // Max angular acceleration of steer motor, in motor frame, degrees/second^2
     double yRatio;
-    double yaw;   // current absolute angle of yaw output stage, as tracked by trajectory planner
+    double yaw;   // current absolute angle of steer output stage, as tracked by trajectory planner
     double mPos;  // position of motor (pre gear stage) - always between 0 and 360°
     double tInner;
     unsigned char cTxData0[8] = {0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // 0xA3 is for sending position commands
@@ -26,7 +26,7 @@ class Yaw
     byte rxcDataLen;
     double currentPos;
   public:
-    Yaw(double vMax, double aMax, double yRatio, double tInner, int len, int mot);
+    Steer(double vMax, double aMax, double yRatio, double tInner, int len, int mot);
     void yawTo(double ang, int ch, int rcLost);
     void motTo(double ang, int ch, int rcLost);
     void setYaw(double yaw);

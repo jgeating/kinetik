@@ -3,7 +3,7 @@
 #include "Kinematics.h";       // wheel level kinematics/trigonometry
 #include "Planner.h";          // robot level planning
 #include "shared/utils.h";            // Basic utils like more powerful serial
-#include "penny/Yaw.h";              // For controlling steering actuator
+#include "penny/Steer.h";              // For controlling steering actuator
 #include "penny/Pads.h";             // For interfacing with weight pads
 #include "penny/Drive.h";            // For controlling drive motors
 #include <Wire.h>;             // For accessing native Arduino I2C functions
@@ -81,9 +81,9 @@ SwerveCAN can;
 PWMReceiver pwmReceiver;  
 RobotState robotState;
 Drive **drive = new Drive *[swerveKinematics.nWheels];
-Yaw **yaw = new Yaw *[swerveKinematics.nWheels];
-double aMaxYaw = 5000;   // Max angular acceleration of yaw motor, in motor frame, rad/s^2. Safe starting value: 5000
-double wMaxYaw = 10000;  // Max angular velocity of yaw motor, in motor frame, rad/s. Safe starting value: 10000
+Steer **steer = new Steer *[swerveKinematics.nWheels];
+double aMaxSteer = 5000;   // Max angular acceleration of steer motor, in motor frame, rad/s^2. Safe starting value: 5000
+double wMaxSteer = 10000;  // Max angular velocity of steer motor, in motor frame, rad/s. Safe starting value: 10000
 int doneHoming = 0;      // Used to determine when calibration sequence is finished. 1 = finished.
 
 // Plotting, telemetry
@@ -138,7 +138,7 @@ void setup() {
   swerveKinematics.dRatio = swerveKinematics.pole_pairs * 60 / (2 * M_PI) / (.083 / 2);  // used to convert m/s to rpm
   for (int i = 0; i < swerveKinematics.nWheels; i++) {
     robotState.irPos[i] = robotState.irPos[i];  // Correcting for polar coordinate frame
-    yaw[i] = new Yaw(wMaxYaw, aMaxYaw, robotState.yRatio, loopTiming.tInner, can.len, i);
+    steer[i] = new Steer(wMaxSteer, aMaxSteer, robotState.yRatio, loopTiming.tInner, can.len, i);
     drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i);
     swerveKinematics.kinematics[i] = new Kinematics(RADIUS_SWERVE_ASSEMBLY, DEAD_ZONE, i);
   }
@@ -189,7 +189,7 @@ void loop() {
         if (k < 2) {
           traj.input[k] = traj.input[k] * global_gain;  // Scale up to max velocity using left stick vertical (throttle, no spring center)
         } else {
-          traj.input[k] = traj.input[k] * (global_gain + 1.0) / 2.0;  // for yaw, only scale between 50% and 100%, not 0 and 100%
+          traj.input[k] = traj.input[k] * (global_gain + 1.0) / 2.0;  // for steer, only scale between 50% and 100%, not 0 and 100%
         }
       }
       if (foc == false) {
@@ -220,14 +220,14 @@ void loop() {
         eulerVest = bnoVest.getVector(Adafruit_BNO055::VECTOR_EULER);
         vestVars.x = eulerVest.z() * M_PI / 180;  // forward/backward lean angle
         vestVars.y = eulerVest.y() * M_PI / 180;  // left/right lean angle
-        vestVars.z = eulerVest.x() * M_PI / 180;  // yaw rotation angle
+        vestVars.z = eulerVest.x() * M_PI / 180;  // steer rotation angle
         gyroVest = bnoVest.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
         vestVars.xRate = gyroVest.z();  // forward/backward lean rate
         vestVars.yRate = gyroVest.y();  // left/right lean rate
-        vestVars.zRate = gyroVest.x();  // yaw rate
+        vestVars.zRate = gyroVest.x();  // steer rate
 
         euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-        imuVars.zRobot = euler.x() * M_PI / 180;  // robot base yaw
+        imuVars.zRobot = euler.x() * M_PI / 180;  // robot base steer
         gyroRobot = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
         imuVars.zRobotRate = gyroRobot.x();
 
@@ -304,7 +304,7 @@ void loop() {
 
     for (int i = 0; i < swerveKinematics.nWheels; i++) {
       if (modes.mode == 0) {
-        yaw[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+        steer[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         delayMicroseconds(can.steerCanDelay);  // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
         // drive[i]->slewVel(pwmReceiver.channels[0]->getCh() / 100.0, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         drive[i]->slewVel(swerveKinematics.kinematics[i]->getTargetVel(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
@@ -312,25 +312,25 @@ void loop() {
       } else {
         switch (bringupMode) {
           case -1:   // 0 = all DOFs simultaneously active
-            yaw[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), eStopChannel, pwmReceiver.rcLost);
+            steer[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
             drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
             break;
           case 0:   // 1 = x axis bringup
-            yaw[i]->yawTo(180, eStopChannel, pwmReceiver.rcLost);
+            steer[i]->yawTo(180, eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
             drive[i]->setVel(traj.qd_d[0], eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
             break;
           case 1: // 2 = y axis bringup
-            yaw[i]->yawTo(-90, eStopChannel, pwmReceiver.rcLost);  // should point forwards
+            steer[i]->yawTo(-90, eStopChannel, pwmReceiver.rcLost);  // should point forwards
             delayMicroseconds(can.driveCanDelay);
             drive[i]->setVel(traj.qd_d[1], eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
             break;
           case 2: // 3 = z axis bringup
-            yaw[i]->yawTo(-45 + i * -90, eStopChannel, pwmReceiver.rcLost); // should point CCW
+            steer[i]->yawTo(-45 + i * -90, eStopChannel, pwmReceiver.rcLost); // should point CCW
             delayMicroseconds(can.driveCanDelay);
             drive[i]->setVel(traj.qd_d[2], eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
@@ -436,8 +436,8 @@ void loop() {
 // ************** CALIBRATION **********************
 void calMotor(SwerveCAN &can) {
   for (int j = 0; j < swerveKinematics.nWheels; j++) {
-    yaw[j]->setHoming(2);  // set homing mode to true for all axes
-    yaw[j]->motTo(0, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+    steer[j]->setHoming(2);  // set homing mode to true for all axes
+    steer[j]->motTo(0, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
   }
   delay(750);           // Give motor time to move to zero position if it is wound up
   double fineTune = 1;  // to step in less than 1 deg increments - this is the ratio (0.2 would be in 0.2 degree increments
@@ -447,23 +447,23 @@ void calMotor(SwerveCAN &can) {
     for (int j = 0; j < swerveKinematics.nWheels; j++) {
       angTarget = i * fineTune;
       can.pos = i * fineTune;
-      if (yaw[j]->getHoming() == 2 && digitalRead(robotState.irPin[j]) == 1) {  // calibration started with IR triggered
-        yaw[j]->setHoming(1);
+      if (steer[j]->getHoming() == 2 && digitalRead(robotState.irPin[j]) == 1) {  // calibration started with IR triggered
+        steer[j]->setHoming(1);
       }
-      if (yaw[j]->getHoming() == 1 && digitalRead(robotState.irPin[j]) == 0) {  // Hit target fresh
-        yaw[j]->setYaw(robotState.irPos[j]);
-        yaw[j]->setMPos(can.pos);
-        yaw[j]->setHoming(0);
+      if (steer[j]->getHoming() == 1 && digitalRead(robotState.irPin[j]) == 0) {  // Hit target fresh
+        steer[j]->setYaw(robotState.irPos[j]);
+        steer[j]->setMPos(can.pos);
+        steer[j]->setHoming(0);
       }
-      if (yaw[j]->getHoming() == 0) {  // position signal should persist, but motor should stop moving after cal marker is detected
-        can.pos = yaw[j]->getMPos();
+      if (steer[j]->getHoming() == 0) {  // position signal should persist, but motor should stop moving after cal marker is detected
+        can.pos = steer[j]->getMPos();
       }
-      yaw[j]->motTo(can.pos, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+      steer[j]->motTo(can.pos, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
     }
     delayMicroseconds(800);
     doneHoming = 1;
     for (int j = 0; j < swerveKinematics.nWheels; j++) {
-      doneHoming = doneHoming && yaw[j]->getHoming() == 0;
+      doneHoming = doneHoming && steer[j]->getHoming() == 0;
     }
     if (doneHoming == 1) {
       swerveKinematics.calibrated = 1;  // set calibration flag to true

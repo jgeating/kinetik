@@ -7,10 +7,10 @@
 class Drive
 {
   private:
-    double v;           // Current velocity of yaw motors, degrees/second
+    double v;           // Current velocity of steer motors, degrees/second
     double a;           // Current acceleration of drive motors
-    double vMax;        // Max angular velocity of yaw motor, in motor frame, rad/s^2
-    double aMax;        // Max angular acceleration of yaw motor, in motor frame, rad/s^2
+    double vMax;        // Max angular velocity of steer motor, in motor frame, rad/s^2
+    double aMax;        // Max angular acceleration of steer motor, in motor frame, rad/s^2
     double dWheel;      // wheel diameter, m
     double dRatio;      // scaling factor from physical rad/sec to erpms
     double tInner;      // length of inner loop, microseconds

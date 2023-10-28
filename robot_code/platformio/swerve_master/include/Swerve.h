@@ -6,7 +6,7 @@
 #include "shared/utils.h";           // Basic utils like more powerful serial
 #include "shared/Channel.h";         // for RC PWM inputs
 
-#define YAW_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
+#define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
 struct pad_vars
 {
@@ -56,9 +56,9 @@ struct vest_vars
 struct imu_vars
 {
     // Robot stuff
-  double zRobot = 0;        // imu yaw angle of robot 
-  double zRobotRate = 0;    // yaw rate of robot (direct gyro signal)
-  double zZero_robot = 0;   // zero yaw angle of robot
+  double zRobot = 0;        // imu steer angle of robot 
+  double zRobotRate = 0;    // steer rate of robot (direct gyro signal)
+  double zZero_robot = 0;   // zero steer angle of robot
 
 };
 
@@ -111,7 +111,7 @@ struct SwerveCAN
   int driveCanDelay = 100; // # of microseconds to delay sending drive CAN for
   // CAN stuff for steering motors
   byte cTxData1[8] = {0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  int idy = 1 || CAN_PACKET_SET_POS << 8; // Yaw ID
+  int idy = 1 || CAN_PACKET_SET_POS << 8; // Steer ID
   unsigned char buf[8];
   int32_t ang = 0;
   int steerCanDelay = 100; // # of microseconds to delay sending steering CAN for
@@ -149,7 +149,7 @@ struct RobotState
   double irPos[4] = {90-19.2, 270-9.5, 270-19.2, 90-9.6}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
   int irPin[4] = {22, 24, 26, 28};                              // pins that ir sensors are hooked up to
   double mRPM[4] = {0, 0, 0, 0};                                // Speed of drive motors (pre gear stage). In eRPM, I think...
-  double yRatio = YAW_GEAR_RATIO;                               // Yaw pulley stage ratio, >1
+  double yRatio = STEER_GEAR_RATIO;                               // Steer pulley stage ratio, >1
   int motPol[4] = {1, 1, 1, 1};                                 // Used to switch motor direction depending on VESC configuration. Not implemented yet due to datatype issues. Just changing VESC parameters instead
 };
 
