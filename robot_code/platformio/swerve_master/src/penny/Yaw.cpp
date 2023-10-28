@@ -1,7 +1,7 @@
-#include "Yaw.h"
-#include "shared/DueCANLayer.h"
+#include "penny/Yaw.h"
+#include "DueCANLayer.h"
 #include <math.h>
-#include "utils.h"
+#include "shared/utils.h"
 
 extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte* cData, byte cDataLen);
 extern byte canRx(byte cPort, long* lMsgID, bool* bExtendedFormat, byte* cData, byte* cDataLen);

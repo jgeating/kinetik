@@ -1,6 +1,6 @@
 #include <math.h>
-#include "shared/DueCANLayer.h"
-#include "utils.h"
+#include "DueCANLayer.h"
+#include "shared/utils.h"
 
 
 //************************** SUPER GENERIC FUNCTIONS ******************

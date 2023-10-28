@@ -1,4 +1,4 @@
-#include "shared/DueCANLayer.h"
+#include "DueCANLayer.h"
 #include <math.h>
 
 #ifndef _YAW_

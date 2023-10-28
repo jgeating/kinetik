@@ -1,11 +1,11 @@
-#include "shared/DueCANLayer.h";      // CAN library for CAN shield
+#include "DueCANLayer.h";      // CAN library for CAN shield
 #include <math.h>;             // Math functions
 #include "Kinematics.h";       // wheel level kinematics/trigonometry
 #include "Planner.h";          // robot level planning
-#include "utils.h";            // Basic utils like more powerful serial
-#include "Yaw.h";              // For controlling steering actuator
-#include "Pads.h";             // For interfacing with weight pads
-#include "Drive.h";            // For controlling drive motors
+#include "shared/utils.h";            // Basic utils like more powerful serial
+#include "penny/Yaw.h";              // For controlling steering actuator
+#include "penny/Pads.h";             // For interfacing with weight pads
+#include "penny/Drive.h";            // For controlling drive motors
 #include <Wire.h>;             // For accessing native Arduino I2C functions
 #include "Adafruit_Sensor.h"   // Downloaded library for IMU stuff
 #include "Adafruit_BNO055.h"   // Downloaded library for IMU stuff

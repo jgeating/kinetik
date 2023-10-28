@@ -1,7 +1,7 @@
-#include "Drive.h"
-#include "shared/DueCANLayer.h"
+#include "penny/Drive.h"
+#include "DueCANLayer.h"
 #include <math.h>
-#include "utils.h"
+#include "shared/utils.h"
 
 extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte* cData, byte cDataLen);
 

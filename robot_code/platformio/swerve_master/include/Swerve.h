@@ -3,8 +3,8 @@
 
 #include "Arduino.h";
 #include "Kinematics.h"; // wheel level kinematics/trigonometry
-#include "utils.h";           // Basic utils like more powerful serial
-#include "Channel.h";         // for RC PWM inputs
+#include "shared/utils.h";           // Basic utils like more powerful serial
+#include "shared/Channel.h";         // for RC PWM inputs
 
 #define YAW_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
