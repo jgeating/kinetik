@@ -1,5 +1,5 @@
 #include "Yaw.h"
-#include "DueCANLayer.h"
+#include "shared/DueCANLayer.h"
 #include <math.h>
 #include "utils.h"
 

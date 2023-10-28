@@ -1,6 +1,6 @@
 #include "Pads.h"
 #include <math.h>
-#include "DueCANLayer.h"
+#include "shared/DueCANLayer.h"
 
 double avg(double val1, double val2){
   return (val1+val2)/2;

@@ -1,5 +1,5 @@
 #include "Channel.h"
-#include "DueCANLayer.h"
+#include "shared/DueCANLayer.h"
 
 Channel::Channel(int pin, short offset) {
   this->PIN = pin;

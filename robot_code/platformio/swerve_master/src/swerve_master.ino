@@ -1,4 +1,4 @@
-#include "DueCANLayer.h";      // CAN library for CAN shield
+#include "shared/DueCANLayer.h";      // CAN library for CAN shield
 #include <math.h>;             // Math functions
 #include "Kinematics.h";       // wheel level kinematics/trigonometry
 #include "Planner.h";          // robot level planning
@@ -13,7 +13,7 @@
 #include "Swerve.h";
 #include "Performance.h";
 #include "PID.h";              // For PID controllers
-#include "LowPassFilter.cpp";  // Low pass filter class
+#include "shared/LowPassFilter.cpp";  // Low pass filter class
 
 const int CHANNEL_PIN[] = {
   38,  // left stick vertical, forward = (+)

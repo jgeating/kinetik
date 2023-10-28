@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------------
 // Due CAN Layer - Created for easier interfacing
 // ------------------------------------------------------------------------
-#include "DueCANLayer.h"
+#include "shared/DueCANLayer.h"
 
 // ------------------------------------------------------------------------
 // Initialize the CAN Controller
