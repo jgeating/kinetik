@@ -11,7 +11,7 @@ Steer::Steer(double vMax, double aMax, double yRatio, double tInner, int len, in
   this->vMax = vMax;
   this->aMax = aMax;
   this->yRatio = yRatio;
-  this->yaw = 0;
+  this->steer = 0;
   this->mPos = 0;
   this->tInner = tInner;
   this->len = len;
@@ -19,19 +19,19 @@ Steer::Steer(double vMax, double aMax, double yRatio, double tInner, int len, in
   this->homing = 0;
 }
 
-// This function traverses to a yaw position, while abiding by acceleration and velocity limits
+// This function traverses to a steer position, while abiding by acceleration and velocity limits
 void Steer::yawTo(double ang, int ch, int rcLost){  
 
   // global variables only used here: v, aMax, vMax, yRatio
 
-  // global variables used only here, init, and calibrate: yaw, mPos, 
+  // global variables used only here, init, and calibrate: steer, mPos, 
 
   // global variables used everywhere: tInner
 
   // functions only used here and calibrate: motTo
   
-  double delPos = ang - this->yaw;  // yaw error term
-  double qd_max = this->aMax * this->tInner / 1000000.0;  // Max allowable change in velocity per dt. For yaw control 
+  double delPos = ang - this->steer;  // steer error term
+  double qd_max = this->aMax * this->tInner / 1000000.0;  // Max allowable change in velocity per dt. For steer control 
   double acc = 1; // +1 for acceleration, -1 for deceleration. Independent of velocity polarity 
   if (abs(delPos) > 180){
     while (abs(delPos) > 180){
@@ -55,12 +55,12 @@ void Steer::yawTo(double ang, int ch, int rcLost){
   this->v = constrain(this->v, -1 * this->vMax, this->vMax);
 
   double delYaw = this->v * this->tInner / 1000000.0;
-  this->yaw = (this->yaw + delYaw); 
+  this->steer = (this->steer + delYaw); 
   this->mPos = (this->mPos + delYaw * this->yRatio);
   this->motTo(this->mPos, ch, rcLost);
 }
 
-// This function sends a yaw motor command - CAN layer, does not account for acceleration limits. Safety cutoff is done here
+// This function sends a steer motor command - CAN layer, does not account for acceleration limits. Safety cutoff is done here
 void Steer::motTo(double ang, int ch, int rcLost){
   //this->mPos = ang;
   // used in yawTo(), calMotor()
@@ -84,8 +84,8 @@ void Steer::motTo(double ang, int ch, int rcLost){
   }
 }
 
-void Steer::setYaw(double yaw) {
-  this->yaw = yaw;
+void Steer::setYaw(double steer) {
+  this->steer = steer;
 }
 
 void Steer::setMPos(double mPos) {
@@ -101,7 +101,7 @@ void Steer::setHoming(byte homing) {
 }
 
 double Steer::getYaw() {
-  return this->yaw;
+  return this->steer;
 }
 
 double Steer::getMPos() {
