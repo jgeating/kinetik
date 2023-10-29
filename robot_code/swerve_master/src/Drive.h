@@ -15,15 +15,23 @@ class Drive
     double dRatio;      // scaling factor from physical rad/sec to erpms
     double tInner;      // length of inner loop, microseconds
     double MaxDelRPM;   // Maximum change per loop
+    double odriveRatio = 2;
     byte cTxData1[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     int len;
     int mot;
+    int type = 0;       // 0 = VESC, 1 = odrive
   public:
-    Drive(double vMax, double aMax, double dRatio, double tInner, int len, int mot);
+    enum Type {
+        VESC,
+        ODRIVE
+    };
+    
+    Drive(double vMax, double aMax, double dRatio, double tInner, int len, int mot, Drive::Type type);
     void slewVel(double vel, int ch, int rcLost);
     void setVel(double vel, int ch, int rcLost);
     void setAcc(double acc, int ch, int rcLost);
     double getVel();
+
 }; 
 
 
