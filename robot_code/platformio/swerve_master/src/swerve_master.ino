@@ -304,7 +304,7 @@ void loop() {
 
     for (int i = 0; i < swerveKinematics.nWheels; i++) {
       if (modes.mode == 0) {
-        steer[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+        steer[i]->yawTo(swerveKinematics.kinematics[i]->getTargetSteer(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         delayMicroseconds(can.steerCanDelay);  // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
         // drive[i]->slewVel(pwmReceiver.channels[0]->getCh() / 100.0, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         drive[i]->slewVel(swerveKinematics.kinematics[i]->getTargetVel(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
@@ -312,7 +312,7 @@ void loop() {
       } else {
         switch (bringupMode) {
           case -1:   // 0 = all DOFs simultaneously active
-            steer[i]->yawTo(swerveKinematics.kinematics[i]->getTargetYaw(), eStopChannel, pwmReceiver.rcLost);
+            steer[i]->yawTo(swerveKinematics.kinematics[i]->getTargetSteer(), eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);
             drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), eStopChannel, pwmReceiver.rcLost);
             delayMicroseconds(can.driveCanDelay);

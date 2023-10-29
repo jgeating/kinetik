@@ -5,15 +5,15 @@ class Kinematics
 {
   private:
     int DEAD_ZONE;
-    double xYawCoeff;
-    double yYawCoeff;
-    double targetYaw;
+    double xSteerCoeff;
+    double ySteerCoeff;
+    double targetSteer;
     double targetVel;
     double r;
   public:
     Kinematics(double RADIUS_SWERVE_ASSEMBLY, int DEAD_ZONE, int wheelIndex);
     void calc(double vx, double vy, double vz);
-    double getTargetYaw();
+    double getTargetSteer();
     double getTargetVel();
 }; 
 
