@@ -2,9 +2,9 @@
 #define _SWERVE_
 
 #include "Arduino.h";
-#include "Kinematics.h"; // wheel level kinematics/trigonometry
-#include "shared/utils.h";           // Basic utils like more powerful serial
-#include "shared/Channel.h";         // for RC PWM inputs
+#include "Kinematics.h";     // wheel level kinematics/trigonometry
+#include "shared/utils.h";   // Basic utils like more powerful serial
+#include "shared/Channel.h"; // for RC PWM inputs
 
 #define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
@@ -34,12 +34,12 @@ struct pad_vars
 
 struct vest_vars
 {
-  double kp_x = 25;           // proportional gain for lean controller (forwards/backwards). Multiples into (m/s^2) / rad
-  double kp_y = 100;           // proportional gain for lean controller (left/right). Multiples into (m/s^2) / rad
-  double kp_z = 15;           // proportional gain for lean controller (rotation). Multiples into (rad/sec^2) / rad
-  double kd_x = .05;             // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
-  double kd_y = .3;          // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec) 
-  double kd_z = 0;             // derivative gain for lean controller. Multiples into (rad/s^2) / (rad/sec) 
+  double kp_x = 25;  // proportional gain for lean controller (forwards/backwards). Multiples into (m/s^2) / rad
+  double kp_y = 100; // proportional gain for lean controller (left/right). Multiples into (m/s^2) / rad
+  double kp_z = 15;  // proportional gain for lean controller (rotation). Multiples into (rad/sec^2) / rad
+  double kd_x = .05; // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec)
+  double kd_y = .3;  // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec)
+  double kd_z = 0;   // derivative gain for lean controller. Multiples into (rad/s^2) / (rad/sec)
 
   double x = 0;              // x angle of imu vest
   double y = 0;              // y angle of imu vest
@@ -48,18 +48,17 @@ struct vest_vars
   double xZero = 0;          // Zero angle of vest. Set when calibrating starting lean angle
   double yZero = 0;
   double zZero = 0;
-  double xRate = 0;          // x rotation rate (direct gyro signal)
+  double xRate = 0; // x rotation rate (direct gyro signal)
   double yRate = 0;
   double zRate = 0;
 };
 
 struct imu_vars
 {
-    // Robot stuff
-  double zRobot = 0;        // imu steer angle of robot 
-  double zRobotRate = 0;    // steer rate of robot (direct gyro signal)
-  double zZero_robot = 0;   // zero steer angle of robot
-
+  // Robot stuff
+  double zRobot = 0;      // imu steer angle of robot
+  double zRobotRate = 0;  // steer rate of robot (direct gyro signal)
+  double zZero_robot = 0; // zero steer angle of robot
 };
 
 // Robot level trajectory/control
@@ -138,7 +137,7 @@ struct Modes
   bool debugRx = 0;     // whether or not to debug receiver
   bool debugTiming = 1; // whether or not to debug timing, look at loop lengths, etc.
   bool debugRiding = 0;
-  bool zeroing = 0;     // whether or not system is zeroing 
+  bool zeroing = 0; // whether or not system is zeroing
 };
 
 // Robot state stuff
@@ -146,11 +145,11 @@ struct RobotState
 {
   int ir[4] = {0, 0, 0, 0}; // status of IR sensor
   // looking from bottom, (+) to offset rotates wheel CCW
-  double irPos[4] = {90-19.2, 270-9.5, 270-19.2, 90-9.6}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
-  int irPin[4] = {22, 24, 26, 28};                              // pins that ir sensors are hooked up to
-  double mRPM[4] = {0, 0, 0, 0};                                // Speed of drive motors (pre gear stage). In eRPM, I think...
+  double irPos[4] = {90 - 19.2, 270 - 9.5, 270 - 19.2, 90 - 9.6}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
+  int irPin[4] = {22, 24, 26, 28};                                // pins that ir sensors are hooked up to
+  double mRPM[4] = {0, 0, 0, 0};                                  // Speed of drive motors (pre gear stage). In eRPM, I think...
   double yRatio = STEER_GEAR_RATIO;                               // Steer pulley stage ratio, >1
-  int motPol[4] = {1, 1, 1, 1};                                 // Used to switch motor direction depending on VESC configuration. Not implemented yet due to datatype issues. Just changing VESC parameters instead
+  int motPol[4] = {1, 1, 1, 1};                                   // Used to switch motor direction depending on VESC configuration. Not implemented yet due to datatype issues. Just changing VESC parameters instead
 };
 
 struct Watchdog

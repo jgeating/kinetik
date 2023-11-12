@@ -31,7 +31,7 @@ void setup() {
   byte odrive_data[4] = { 0x08, 0x00, 0x00, 0x00 };
 
   canTx(1, idd, ext, odrive_data, sizeof(odrive_data));
-  delay(1000);
+  delay(3000);
 }
 
 void printMessage() {
@@ -39,7 +39,7 @@ void printMessage() {
   bool bExtendedFormat;
   byte cRxData[8];
   byte cDataLen;
-  if(canRx(0, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen) == CAN_OK)
+  if(canRx(1, &lMsgID, &bExtendedFormat, &cRxData[0], &cDataLen) == CAN_OK)
   {
     Serial.print("CAN0: Rx - MsgID:");
     Serial.print(lMsgID);
@@ -85,7 +85,7 @@ void loop() {
   // }
 
   int idd = mot << 5 | 0x0d;  // 6/22/2021, added +1 because I indexed at 1, not 0, 4/9/2023, switched back, because of zero index
-
+  // Serial.println(idd);
   canTx(1, idd, ext, odrive_data_big_endian, sizeof(odrive_data));
   delay(10);
 }

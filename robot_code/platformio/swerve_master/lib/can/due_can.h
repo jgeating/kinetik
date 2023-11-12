@@ -70,7 +70,7 @@
 #define CAN_BPS_25K                   25000
 #define CAN_BPS_10K                   10000
 #define CAN_BPS_5K                    5000
-#define CAN_DEFAULT_BAUD	            CAN_BPS_250K
+#define CAN_DEFAULT_BAUD	            CAN_BPS_1000K
 
 /** Define the mailbox mode. */
 #define CAN_MB_DISABLE_MODE           0

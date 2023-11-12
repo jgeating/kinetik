@@ -10,7 +10,6 @@ class Planner
     double dt;        // length of time step, microseconds
 
     // Vest related
-    double maxLean;   // max lean angle to scale to target output, rad
     double in0[3];    // zeros for input angles from IMU(s), rad
     double input[3];  // input for various control modes, units dependent on control mode
   
@@ -35,7 +34,7 @@ class Planner
     double dewrap(double x);
     
   public:
-    Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead, int mode, double maxLean);
+    Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead, int mode);
     
     // Main functions 
     int plan(double x_in, double y_in, double z_in);

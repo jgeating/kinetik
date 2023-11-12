@@ -4,11 +4,9 @@
 
 // planner = new Planner(tInner,      qd_max[0],       qd_max[1],       qd_max[2],       qdd_max[0],       qdd_max[1],       qdd_max[2],         dz[0],         dz[1],         dz[2],     mode,        maxLean);
 
-Planner::Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead, int mode, double maxLean) {
+Planner::Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead, int mode) {
   this->mode = mode;              // mode for what inputs/control algorithm to use
   this->dt = tInner / 1000000.0;  // length of time step, microseconds
-
-  this->maxLean = maxLean;  // max lean angle to scale to output, rad
 
   double in0[3];  // zeros for input angles from e.g. IMU(s), rad
   this->in0[0] = 0;
