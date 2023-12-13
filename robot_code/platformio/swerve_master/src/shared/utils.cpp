@@ -12,3 +12,13 @@ double sign(double num){
     return 1;
   }
 }
+
+double constr(double in, double low, double high){
+  if (in < low){
+    return low;
+  }
+  if (in > high){
+    return high;
+  }
+  return in;
+}

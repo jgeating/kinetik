@@ -1,10 +1,17 @@
 #include "Planner.h"
+#include "shared/utils.h"
 #include <cmath>
 // #include <math.h>
 
 // planner = new Planner(tInner,      qd_max[0],       qd_max[1],       qd_max[2],       qdd_max[0],       qdd_max[1],       qdd_max[2],         dz[0],         dz[1],         dz[2],     mode,        maxLean);
+Planner::Planner( double tInner, 
+                  double qd_x_max, double qd_y_max, double qd_z_max, 
+                  double qdd_x_max, double qdd_y_max, double qdd_z_max, 
+                  double x_dead, double y_dead, double z_dead, 
+                  double x_dead_t, double y_dead_t, double z_dead_t, 
+                  int mode
+                  ){
 
-Planner::Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead, int mode) {
   this->mode = mode;              // mode for what inputs/control algorithm to use
   this->dt = tInner / 1000000.0;  // length of time step, microseconds
 
@@ -63,6 +70,10 @@ Planner::Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_ma
   this->dband[1] = y_dead;
   this->dband[2] = z_dead;
 
+  this->dband_teleop[0] = x_dead_t;
+  this->dband_teleop[1] = y_dead_t;
+  this->dband_teleop[2] = z_dead_t;
+
   double del_qd_max[3];  // max amount velocity can change by in one dt
   this->del_qd_max[0] = this->qdd_max[0] * this->dt;
   this->del_qd_max[1] = this->qdd_max[1] * this->dt;
@@ -75,11 +86,16 @@ int Planner::plan(double x_in, double y_in, double z_in) {
   this->input[2] = z_in;
 
   switch (this->mode) {
-
     // ********** TELE-OP MODE *************
     case 0:  // TELE-OP MODE
       for (int i = 0; i < 3; i++) {
-        this->qd_d[i] = this->input[i];  // assume inputs are already in m/s, rad/s
+        this->qd_d[i] = abs(this->input[i]) - this->dband_teleop[i];  // assume inputs are already in m/s, rad/s
+        if (this->qd_d[i] < 0.0){
+          this->qd_d[i] = 0.0;
+        }
+        this->qd_d[i] = this->qd_d[i] * sign(this->input[i]);
+        // this->qd_d[i] = (double)sign(this->input[i]) * lim(abs(this->input[i]) - this->dband_teleop[i], 0, 1);  // assume inputs are already in m/s, rad/s
+        // this->qd_d[i] = this->input[i];
       }
 
       // inputs are already in m/s and rad/s for these modes

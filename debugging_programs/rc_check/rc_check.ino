@@ -28,7 +28,7 @@ int rcTimeout = 100000;             // number of microseconds before receiver ti
 bool rcLost = 1;                    // This is set to true if no receiver signal is received within the rcTimeout timeframe (microseconds)
 int estop_ch = 6;                   // which Rx channel is used for motor enabling/SW e-stop. 0 index
 int mode_ch = 7;                    // which Rx channel is used for setting mode
-
+short last[] = {0, 0, 0, 0, 0, 0, 0, 0};
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -50,6 +50,17 @@ void setup() {
 void loop() {
   Serial.println("******************");
   for (int i = 0; i < 8; i++){
+    // Check for PWM glitches
+    // short temp = last[i] - channels[i]->getCh();
+    // if (temp > 2) {
+    //   Serial.println(temp);
+    //   Serial.println(i);
+    // }
+    // if (temp < -2) {
+    //   Serial.println(temp);
+    //   Serial.println(i);
+    // }
+    // last[i] = channels[i]->getCh();    
     Serial.println(channels[i]->getCh());
   }
   delay(50);

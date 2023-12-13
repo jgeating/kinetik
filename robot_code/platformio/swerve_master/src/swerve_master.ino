@@ -25,6 +25,7 @@ const int CHANNEL_PIN[] = {
     50, // left switch, backwards = (-)
     52  // right switch, backwards = (-)
 };
+int rctemp[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Temp storage for rc value debugging
 
 #define RADIUS_SWERVE_ASSEMBLY 0.25 // distance to wheel swerve axes, meters
 #define DEAD_ZONE 0.1
@@ -128,7 +129,12 @@ void setup()
     drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i, types[i]);
     swerveKinematics.kinematics[i] = new Kinematics(RADIUS_SWERVE_ASSEMBLY, DEAD_ZONE, i);
   }
-  planner = new Planner(loopTiming.tInner, traj.qd_max[0], traj.qd_max[1], traj.qd_max[2], traj.qdd_max[0], traj.qdd_max[1], traj.qdd_max[2], traj.dz[0], traj.dz[1], traj.dz[2], modes.mode);
+  planner = new Planner(loopTiming.tInner, 
+                        traj.qd_max[0], traj.qd_max[1], traj.qd_max[2], 
+                        traj.qdd_max[0], traj.qdd_max[1], traj.qdd_max[2], 
+                        traj.dz[0], traj.dz[1], traj.dz[2],
+                        traj.dzt[0], traj.dzt[1], traj.dzt[2], 
+                        modes.mode);
 
   // Set up pad pid classes
   dt = loopTiming.tInner / 1000000.0;
@@ -174,9 +180,10 @@ void loop()
 
       // ******************* tele-op mode ************************
       // PWM conditioning to send to planner
-      double global_gain = float(constrain(pwmReceiver.channels[0]->getCh(), -500, 500) / 1000.0 + 0.5); // Maps to 0.0 - 1.0
+      double global_gain = float(constrain(pwmReceiver.channels[0]->getCh(), -500, 500) / 1000.0 + 0.5); // Maps to 0.0 -¨ 1.0
       for (int k = 0; k < 3; k++)
       {
+    
         traj.input[k] = constrain(pwmReceiver.channels[k + 1]->getCh() / 500.0, -1.0, 1.0);
         traj.input[k] = traj.input[k] * traj.qd_max[k];
         if (k < 2)
@@ -194,8 +201,13 @@ void loop()
       traj.qd_d[0] = planner->getTargetVX();
       traj.qd_d[1] = planner->getTargetVY();
       traj.qd_d[2] = planner->getTargetVZ();
-      endProfile(profiles.mode0);
 
+      // Serial.println("*************");
+      // Serial.println(traj.qd_d[0]);
+      // Serial.println(traj.qd_d[1]);
+      // Serial.println(traj.qd_d[2]);
+
+      endProfile(profiles.mode0);
       // *************************** riding modes ************************
     }
     else if (modes.mode > 0)

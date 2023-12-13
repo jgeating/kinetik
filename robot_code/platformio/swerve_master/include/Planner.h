@@ -8,6 +8,7 @@ class Planner
     // safety, timing, state related
     int mode;         // mode for what inputs/control algorithm to use
     double dt;        // length of time step, microseconds
+    double dband_teleop[3];  // Deadband of controller when in teleop mode. In fraction of total command (0 to 1)
 
     // Vest related
     double in0[3];    // zeros for input angles from IMU(s), rad
@@ -34,7 +35,13 @@ class Planner
     double dewrap(double x);
     
   public:
-    Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead, int mode);
+    Planner(double tInner, 
+            double qd_x_max, double qd_y_max, double qd_z_max, 
+            double qdd_x_max, double qdd_y_max, double qdd_z_max, 
+            double x_dead, double y_dead, double z_dead, 
+            double x_dead_t, double y_dead_t, double z_dead_t, 
+            int mode
+            );
     
     // Main functions 
     int plan(double x_in, double y_in, double z_in);
