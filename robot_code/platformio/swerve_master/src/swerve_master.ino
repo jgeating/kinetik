@@ -25,6 +25,10 @@ const int CHANNEL_PIN[] = {
     50, // left switch, backwards = (-)
     52  // right switch, backwards = (-)
 };
+int rctemp[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Temp storage for rc value debugging
+
+// Definitions
+#pragma region
 
 #define RADIUS_SWERVE_ASSEMBLY 0.25 // distance to wheel swerve axes, meters
 #define DEAD_ZONE 0.1
@@ -38,6 +42,7 @@ double qdd_d = 0;
 double temp = 0; // generic doubles for testing new things
 double temp2 = 0;
 double temp3 = 0;
+double global_gain = 0; // Used for various things 
 double dt = 0;        // loop period. Pulled from timing loop parameter, converted from usec to sec
 int bringupMode = -1; // Bringup mode. set to -1 for normal operation, 0... are for bringing up specific axes for single DOF PID tuning 0 = X, 1 = Y, 2 = Z
 
@@ -78,6 +83,8 @@ unsigned long prevTelemetryReportTime = 0;
 Watchdog watchdog;
 LowPassFilter filter(10); // create a low-pass filter with 10 readings
 
+#pragma endregion
+
 void setup()
 {
   analogReadResolution(12);
@@ -115,6 +122,10 @@ void setup()
   attachInterrupt(pwmReceiver.channels[5]->getPin(), calcCh6, CHANGE);
   attachInterrupt(pwmReceiver.channels[6]->getPin(), calcCh7, CHANGE);
   attachInterrupt(pwmReceiver.channels[7]->getPin(), calcCh8, CHANGE);
+  delay(100); // Wait for rc channels to initially detect, for zeroing
+  // for (int i = 1; i < 4; i++){  // Zero spring centered joysticks 
+  //   pwmReceiver.channels[i]->zero();
+  // }
   Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
 
   delay(3000); // Need a delay between CAN initialization and ODRIVE initialization (in the Drive class)
@@ -128,7 +139,12 @@ void setup()
     drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i, types[i]);
     swerveKinematics.kinematics[i] = new Kinematics(RADIUS_SWERVE_ASSEMBLY, DEAD_ZONE, i);
   }
-  planner = new Planner(loopTiming.tInner, traj.qd_max[0], traj.qd_max[1], traj.qd_max[2], traj.qdd_max[0], traj.qdd_max[1], traj.qdd_max[2], traj.dz[0], traj.dz[1], traj.dz[2], modes.mode);
+  planner = new Planner(loopTiming.tInner, 
+                        traj.qd_max[0], traj.qd_max[1], traj.qd_max[2], 
+                        traj.qdd_max[0], traj.qdd_max[1], traj.qdd_max[2], 
+                        traj.dz[0], traj.dz[1], traj.dz[2],
+                        traj.dzt[0], traj.dzt[1], traj.dzt[2], 
+                        modes.mode);
 
   // Set up pad pid classes
   dt = loopTiming.tInner / 1000000.0;
@@ -152,6 +168,7 @@ void loop()
   loopTiming.now = micros();
   if (loopTiming.now - loopTiming.lastInner > loopTiming.tInner)
   {
+    { // loop timing 
     startProfile(profiles.loopTiming);
     if (loopTiming.behind)
     { // This means we can't keep up with the desired loop rate. Trip LED to indicate so
@@ -165,40 +182,47 @@ void loop()
       loopTiming.behind = true;
     }
     endProfile(profiles.loopTiming);
+    }
+
     //*************************************************
     //***************BEGIN FAST LOOP*******************
     //*************************************************
-    if (modes.mode == 0)
+    if (modes.mode == 0)  // Tele-op mode *************************
     { // 0 = tele-op
       startProfile(profiles.mode0);
 
-      // ******************* tele-op mode ************************
       // PWM conditioning to send to planner
-      double global_gain = float(constrain(pwmReceiver.channels[0]->getCh(), -500, 500) / 1000.0 + 0.5); // Maps to 0.0 - 1.0
-      for (int k = 0; k < 3; k++)
-      {
-        traj.input[k] = constrain(pwmReceiver.channels[k + 1]->getCh() / 500.0, -1.0, 1.0);
-        traj.input[k] = traj.input[k] * traj.qd_max[k];
-        if (k < 2)
-        {
-          traj.input[k] = traj.input[k] * global_gain; // Scale up to max velocity using left stick vertical (throttle, no spring center)
-        }
-        else
-        {
-          traj.input[k] = traj.input[k] * (global_gain + 1.0) / 2.0; // for steer, only scale between 50% and 100%, not 0 and 100%
+      for (int k = 0; k < 4; k++){
+        
+        if (k != 3){
+          traj.input[k] = constrain(pwmReceiver.channels[k + 1]->getCh() / 500.0, -1.0, 1.0);
+        } else {
+          traj.input[3] = constrain(pwmReceiver.channels[0]->getCh() / 1000.0, -0.5, 0.5) + 0.5;
         }
       }
-      planner->plan(traj.input[0], traj.input[1], traj.input[2]);
+      // Serial.println("*******************");
+      // Serial.println(traj.input[0]);
+      // Serial.println(traj.input[1]);
+      // Serial.println(traj.input[2]);
+      // Serial.println(traj.input[3]);
+      // delay(50);
+      planner->plan(traj.input[0], traj.input[1], traj.input[2], traj.input[3]);
 
       // Get results from planner
       traj.qd_d[0] = planner->getTargetVX();
       traj.qd_d[1] = planner->getTargetVY();
       traj.qd_d[2] = planner->getTargetVZ();
-      endProfile(profiles.mode0);
 
+      // Serial.println("*************");
+      // Serial.println(traj.qd_d[0]);
+      // Serial.println(traj.qd_d[1]);
+      // Serial.println(traj.qd_d[2]);
+      // delay(50);
+
+      endProfile(profiles.mode0);
       // *************************** riding modes ************************
     }
-    else if (modes.mode > 0)
+    else if (modes.mode > 0) // Non tele-op modes *****************
     { // mode 0 = tele-op. all other modes > 0 (IMU = 1, force pads = 2)
       startProfile(profiles.modeOther);
       if (modes.mode == 2)
@@ -242,7 +266,7 @@ void loop()
 
     startProfile(profiles.kinematics);
 
-    for (int i = 0; i < swerveKinematics.nWheels; i++)
+    for (int i = 0; i < swerveKinematics.nWheels; i++) // Calc wheel space from robot space 
     {
       if (modes.mode == 0)
       { // tele-op
@@ -259,16 +283,7 @@ void loop()
     int eStopChannel = pwmReceiver.channels[pwmReceiver.estop_ch]->getCh();
     bool teleop = pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < -300;
 
-    if (modes.mode > 0)
-    {
-      // double delVestRobot = (vestVars.z - vestVars.zZero) - (imuVars.zRobot - imuVars.zZero_robot);
-      // while (abs(delVestRobot) > 180) { // unwrap to keep within +/- 180 deg
-      //   delVestRobot = delVestRobot - sign(delVestRobot) * 360.0;
-      // }
-      // v_temp = delVestRobot/-5.0;
-    }
-
-    for (int i = 0; i < swerveKinematics.nWheels; i++)
+    for (int i = 0; i < swerveKinematics.nWheels; i++) // Send commands to all motors 
     {
       if (modes.mode == 0)
       {
@@ -313,6 +328,7 @@ void loop()
       }
     }
 
+    { // Serial prints @ reduced rate 
     plotCounter++;
     bool plot = plotCounter % 20 == 0;
     if (plot)
@@ -330,14 +346,15 @@ void loop()
       // pads->printDebug();
     }
     endProfile(profiles.updateMotorSpeeds);
+    }
   }
-  else
+  else  // Overtiming 
   {
     loopTiming.behind = false;
   }
 
   startProfile(profiles.outerLoop);
-  if (loopTiming.now - loopTiming.lastOuter > loopTiming.tOuter)
+  if (loopTiming.now - loopTiming.lastOuter > loopTiming.tOuter)  // Slow loop
   {
     loopTiming.lastOuter = loopTiming.lastOuter + loopTiming.tOuter;
     //***********************BEGIN SLOW LOOP*******************************
@@ -410,14 +427,13 @@ void loop()
     }
   }
   endProfile(profiles.outerLoop);
-
   endProfile(profiles.robotLoop);
   // printProfiles(profiles);
 }
 
 // *********************************************** HELPER FUNCTIONS **************************************************************
 
-// ************** CALIBRATION **********************
+// CALIBRATION 
 void calMotor(SwerveCAN &can)
 {
   for (int j = 0; j < swerveKinematics.nWheels; j++)
@@ -499,7 +515,7 @@ void telemetry()
   Serial.println("\n");
 }
 
-// ***********************2.4 GHz RECEIVER  FUNCTIONS
+// 2.4 GHz RECEIVER  FUNCTIONS
 void calcCh1()
 {
   pwmReceiver.channels[0]->calc();

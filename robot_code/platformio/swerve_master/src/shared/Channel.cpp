@@ -18,6 +18,10 @@ void Channel::calc() {
   }
 }
 
+void Channel::zero() {
+  this->offset = this->offset + this->ch;
+}
+
 int Channel::getPin() {
   return this->PIN;
 }

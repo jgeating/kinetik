@@ -1,10 +1,18 @@
 #include "Planner.h"
+#include "shared/utils.h"
 #include <cmath>
+// #include <Arduino.h>
 // #include <math.h>
 
 // planner = new Planner(tInner,      qd_max[0],       qd_max[1],       qd_max[2],       qdd_max[0],       qdd_max[1],       qdd_max[2],         dz[0],         dz[1],         dz[2],     mode,        maxLean);
+Planner::Planner( double tInner, 
+                  double qd_x_max, double qd_y_max, double qd_z_max, 
+                  double qdd_x_max, double qdd_y_max, double qdd_z_max, 
+                  double x_dead, double y_dead, double z_dead, 
+                  double x_dead_t, double y_dead_t, double z_dead_t, 
+                  int mode
+                  ){
 
-Planner::Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead, int mode) {
   this->mode = mode;              // mode for what inputs/control algorithm to use
   this->dt = tInner / 1000000.0;  // length of time step, microseconds
 
@@ -63,39 +71,59 @@ Planner::Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_ma
   this->dband[1] = y_dead;
   this->dband[2] = z_dead;
 
+  this->dband_teleop[0] = x_dead_t;
+  this->dband_teleop[1] = y_dead_t;
+  this->dband_teleop[2] = z_dead_t;
+
   double del_qd_max[3];  // max amount velocity can change by in one dt
   this->del_qd_max[0] = this->qdd_max[0] * this->dt;
   this->del_qd_max[1] = this->qdd_max[1] * this->dt;
   this->del_qd_max[2] = this->qdd_max[2] * this->dt;
 }
 
-int Planner::plan(double x_in, double y_in, double z_in) {
+int Planner::plan(double x_in, double y_in, double z_in, double gain_in) {
   this->input[0] = x_in;
   this->input[1] = y_in;
   this->input[2] = z_in;
+  this->gain = gain_in;
 
   switch (this->mode) {
-
     // ********** TELE-OP MODE *************
+    {
     case 0:  // TELE-OP MODE
       for (int i = 0; i < 3; i++) {
-        this->qd_d[i] = this->input[i];  // assume inputs are already in m/s, rad/s
+
+        // Apply deadband 
+        this->qd_d[i] = std::abs(this->input[i]) - this->dband_teleop[i];
+        if (this->qd_d[i] < 0.0){
+          this->qd_d[i] = 0.0;
+        }
+        this->qd_d[i] = this->qd_d[i] * sign(this->input[i]); // scale from 0-1 input to max velocity in m/s 
+
+        // Apply global gain (gain_in is from 0 to 1)
+        if (i < 2){
+          this->qd_d[i] = this->qd_d[i] * this->gain; // Scale up to max velocity using left stick vertical (throttle, no spring center)
+        } else {
+          this->qd_d[i] = this->qd_d[i] * (this->gain + 1.0) / 2.0; // for steer, only scale between 50% and 100%, not 0 and 100%
+        }
+
+        // Scale from unitless to real values
+        this->qd_d[i] = this->qd_d[i] * this->qd_max[i];
       }
+
 
       // inputs are already in m/s and rad/s for these modes
       return this->calcFromVels();
       break;
+    }
 
-    // ********** IMU/RIDING MODES ***************
+    // ********** WEIGHT STEERING MODE *****
+    {
     case 1:  // zero IMU
-      this->setZeros(input[0], input[1], input[2]);
+      this->setZeros(input[0], input[1], input[2], gain_in);
       break;
-    case 2:  // or velocity (2) control. inputs are in IMU lean angle
-      // constrain inputs within to +/- pi
+    case 2:  // or velocity (2) control. inputs are fraction of distance to max COP 
       for (int i = 0; i < 3; i++) {
-        //this->input[i] = this->dewrap(input[i]);                          // dewrap input to make within ±180°
-        //this->input[i] = this->input[i] - this->in0[i];                   // Apply zero offsets to inputs
-        //this->input[i] = this->lim(this->input[i]/this->maxLean, -1, 1);  // Normalize inputs to [-1, 1] range
         if (mode == 2) {  // Velocity control
           this->qd_d[i] = this->input[i] * this->qd_max[i];
         } else if (mode == 3) {  // Acceleration control
@@ -110,38 +138,32 @@ int Planner::plan(double x_in, double y_in, double z_in) {
     case 3:  // IMU mode, velocity (3)
       return 0;
       break;
+    }
+
     default:
       return 0;
   }
 }
 
-int Planner::plan_world(double x_in, double y_in, double z_in, double alpha) {  // For driving the robot wrt world frame. Takes in IMU orientation and transforms inputs to robot frame
+int Planner::plan_world(double x_in, double y_in, double z_in, double gain_in, double alpha) {  // For driving the robot wrt world frame. Takes in IMU orientation and transforms inputs to robot frame
   double beta = atan2(y_in, x_in);                                              // angle of desired velocity vector wrt world frame
   double qd_n = sqrt(y_in * y_in + x_in * x_in);                                // velocity magnitude
   double gamma = alpha + beta;                                                  // angle of desired velocity vector wrt robot frame
-  return this->plan(qd_n * cos(gamma), qd_n * sin(gamma), z_in);
+  return this->plan(qd_n * cos(gamma), qd_n * sin(gamma), z_in, gain_in);
 }
 
-// double bound(double value, double a, double b) {
-//   return a < b ? constrain(value, a, b) : constrain(value, b, a);
-// }
 
-double min(double a, double b) {
+double min2(double a, double b) {
   return a < b ? a : b;
 }
 
 int Planner::calcFromVels() {
   double del_qd = 0;  // termporary variable for velocity error
   for (int i = 0; i < 3; i++) {
-    // set desired to zero if within deadband
-    // if (std::abs(this->qd_d[i]) < this->dband[i]) {
-    //   this->qd_d[i] = 0;
-    // }
-
-    del_qd = this->qd_d[i] - this->qd[i];  // velocity error term
-    //this->del_qd_max[i] = this->qdd_max[i] * this->dt;
-    this->qd[i] = this->qd[i] + this->sign(del_qd) * min(std::abs(del_qd), this->del_qd_max[i]);
-    this->qd[i] = this->lim(this->qd[i], -1.0 * this->qd_max[i], this->qd_max[i]);
+    // del_qd = this->qd_d[i] - this->qd[i];  // velocity error term
+    // this->qd[i] = this->qd[i] + this->sign(del_qd) * min2(std::abs(del_qd), this->del_qd_max[i]);
+    // this->qd[i] = this->lim(this->qd[i], -1.0 * this->qd_max[i], this->qd_max[i]);
+    this->qd[i] = this->qd_d[i];
   }
   return 1;
 }
@@ -161,7 +183,7 @@ void Planner::setMode(int mode) {
   this->mode = mode;
 }
 
-void Planner::setZeros(double x_in, double y_in, double z_in) {
+void Planner::setZeros(double x_in, double y_in, double z_in, double gain_in) {
   this->input[0] = x_in;
   this->input[1] = y_in;
   this->input[2] = z_in;
@@ -208,7 +230,7 @@ double Planner::lim(double x, double a, double b) {
 
 double Planner::dewrap(double x) {  // unwrap angles to make within ±PI (±180 degrees). units are radians
   double ret = x;
-  while (std::abs(ret) > M_PI) {
+  while (abs(ret) > M_PI) {
     if (x > M_PI) {
       ret = ret - 2 * M_PI;
     }

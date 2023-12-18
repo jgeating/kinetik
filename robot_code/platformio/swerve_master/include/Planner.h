@@ -8,6 +8,7 @@ class Planner
     // safety, timing, state related
     int mode;         // mode for what inputs/control algorithm to use
     double dt;        // length of time step, microseconds
+    double dband_teleop[3];  // Deadband of controller when in teleop mode. In fraction of total command (0 to 1)
 
     // Vest related
     double in0[3];    // zeros for input angles from IMU(s), rad
@@ -25,6 +26,7 @@ class Planner
     double dband[3];  // dead band zone, in m/s or rad/s. robot will not move if desired is slower than this 
     double del_qd_max[3];   // intermediate variable for calculations
     double alpha = 0; // angle of robot wrt world frame, rad
+    double gain = 0;  // Gain multiplier for slow driving. 0 to 1
 
     // Functions
     int calcFromAccels();                     // for planning in acceleration control
@@ -34,15 +36,21 @@ class Planner
     double dewrap(double x);
     
   public:
-    Planner(double tInner, double qd_x_max, double qd_y_max, double qd_z_max, double qdd_x_max, double qdd_y_max, double qdd_z_max, double x_dead, double y_dead, double z_dead, int mode);
+    Planner(double tInner, 
+            double qd_x_max, double qd_y_max, double qd_z_max, 
+            double qdd_x_max, double qdd_y_max, double qdd_z_max, 
+            double x_dead, double y_dead, double z_dead, 
+            double x_dead_t, double y_dead_t, double z_dead_t, 
+            int mode
+            );
     
     // Main functions 
-    int plan(double x_in, double y_in, double z_in);
-    int plan_world(double x_in, double y_in, double z_in, double alpha);
+    int plan(double x_in, double y_in, double z_in, double gain_in);
+    int plan_world(double x_in, double y_in, double z_in, double gain_in, double alpha);
 
     // Setters, getters
     void setMode(int mode);
-    void setZeros(double x_in, double y_in, double z_in);
+    void setZeros(double x_in, double y_in, double z_in, double gain_in);
     double getTargetVX();
     double getTargetVY();
     double getTargetVZ();

@@ -1,10 +1,10 @@
 #ifndef _SWERVE_
 #define _SWERVE_
 
-#include "Arduino.h";
-#include "Kinematics.h";     // wheel level kinematics/trigonometry
-#include "shared/utils.h";   // Basic utils like more powerful serial
-#include "shared/Channel.h"; // for RC PWM inputs
+#include "Arduino.h"
+#include "Kinematics.h"     // wheel level kinematics/trigonometry
+#include "shared/utils.h"   // Basic utils like more powerful serial
+#include "shared/Channel.h" // for RC PWM inputs
 
 #define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
@@ -64,12 +64,13 @@ struct imu_vars
 // Robot level trajectory/control
 struct SwerveTrajectory
 {
-  double qd_max[3] = {40, 40, 40};  // max velocity: {m/s, m/s, rad/s}
-  double qdd_max[3] = {60, 60, 75}; // max acceleration: {m/s^2, m/s^2, rad/s^2}
-  double dz[3] = {.1, .1, .1};      // Deadzone velocity bounds: {m/s, m/s, rad/s}
-  double qd_d[3] = {0, 0, 0};       // desired velocity, to send to planner
-  double qdd_d[3] = {0, 0, 0};      // desired acceleration
-  double input[3] = {0, 0, 0};      // hold inputs
+  double qd_max[3] = {40, 40, 40};    // max velocity: {m/s, m/s, rad/s}
+  double qdd_max[3] = {60, 60, 75};   // max acceleration: {m/s^2, m/s^2, rad/s^2}
+  double dz[3] = {.1, .1, .1};        // Deadzone velocity bounds: {m/s, m/s, rad/s}
+  double dzt[3] = {0.01, 0.01, 0.01}; // Deadzone for teleop, fraction of full scale command (0 to 1)
+  double qd_d[3] = {0, 0, 0};         // desired velocity, to send to planner
+  double qdd_d[3] = {0, 0, 0};        // desired acceleration
+  double input[4] = {0, 0, 0, 0};        // hold inputs. Index 3 is global gain 
 };
 
 struct SwerveKinematics
