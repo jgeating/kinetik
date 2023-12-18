@@ -13,6 +13,7 @@ class Channel
   public:
     Channel(int pin, short chOff);
     void calc();
+    void zero();
     int getPin();
     volatile int getLastInterruptTime();
     volatile unsigned long getTimerStart();
