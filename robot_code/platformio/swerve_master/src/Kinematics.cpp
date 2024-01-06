@@ -19,8 +19,7 @@ void Kinematics::calc(double vx, double vy, double vz) {
   double wheel_velocity_y = qd_y + (r * qd_z * this->ySteerCoeff);
   double vel = sqrt(wheel_velocity_x * wheel_velocity_x + wheel_velocity_y * wheel_velocity_y);
   if (vel > this->DEAD_ZONE){
-    double wheel_angle = atan2(wheel_velocity_y, wheel_velocity_x)*180.0/M_PI;
-    this->targetSteer = wheel_angle;
+    this->targetSteer = atan2(wheel_velocity_y, wheel_velocity_x);
   } else {
     vel = 0;
   }

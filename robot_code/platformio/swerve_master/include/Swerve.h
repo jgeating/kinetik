@@ -5,31 +5,21 @@
 #include "Kinematics.h"     // wheel level kinematics/trigonometry
 #include "shared/utils.h"   // Basic utils like more powerful serial
 #include "shared/Channel.h" // for RC PWM inputs
+#include <math.h>
 
 #define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
 struct pad_vars
 {
-  // float kp_x = 30;
-  // float kp_y = 20;
-  // float kp_z = 15;
+  // Kinematics parameters 
+  float qd_max[3] = {10, 10, 30}; // Max speeds in weight control mode {m/s, m/s, rad/s}
+  float qdd_max[3] = {15, 15, 60};   // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
 
-  float kp_x = 80;
-  float kp_y = 20;
-  float kp_z = 50;
-
-  float ki_x = 0;
-  float ki_y = 0;
-  float ki_z = 0;
-
-  // should always be negative
-  float kd_x = -8;
-  float kd_y = 0;
-  float kd_z = 0;
-
-  float lag_x = 10; // number of lag samples
-  float lag_y = 10;
-  float lag_z = 10;
+  // Control loop parameters
+  float kp[3] = {80, 20, 50};   // Position term for weight control loop
+  float ki[3] = {0, 0, 0};      // Integral term
+  float kd[3] = {-8, 0, 0};     // Derivative term, should always be negative
+  float lag[3] = {10, 10, 10};  // No. of samples for lag filter
 };
 
 struct vest_vars
@@ -61,26 +51,41 @@ struct imu_vars
   double zZero_robot = 0; // zero steer angle of robot
 };
 
-// Robot level trajectory/control
 struct SwerveTrajectory
 {
-  double qd_max[3] = {40, 40, 40};    // max velocity: {m/s, m/s, rad/s}
-  double qdd_max[3] = {60, 60, 75};   // max acceleration: {m/s^2, m/s^2, rad/s^2}
-  double dz[3] = {.1, .1, .1};        // Deadzone velocity bounds: {m/s, m/s, rad/s}
-  double dzt[3] = {0.01, 0.01, 0.01}; // Deadzone for teleop, fraction of full scale command (0 to 1)
-  double qd_d[3] = {0, 0, 0};         // desired velocity, to send to planner
-  double qdd_d[3] = {0, 0, 0};        // desired acceleration
-  double input[4] = {0, 0, 0, 0};        // hold inputs. Index 3 is global gain 
+  // Robot level parameters 
+  double qd_max[3] = {40, 40, 40};      // max velocity: {m/s, m/s, rad/s}
+  double qdd_max[3] = {60, 60, 75};     // max acceleration: {m/s^2, m/s^2, rad/s^2}
+  double dz[3] = {.1, .1, .1};          // Deadzone velocity bounds: {m/s, m/s, rad/s}
+  double dzt[3] = {0.01, 0.01, 0.01};   // Deadzone for teleop, fraction of full scale command (0 to 1)
+  double qd_d[3] = {0, 0, 0};           // desired velocity, to send to planner
+  double qdd_d[3] = {0, 0, 0};          // desired acceleration
+  double input[4] = {0, 0, 0, 0};       // hold inputs. Index 3 is global gain 
+
+  // Steering DOF parameters 
+  double s_qdd_max = 5000;              // max robot acceleration, erpm/sec, eventually m/s^2
+  double s_error_max = 10 * PI/180;     // Max tracking error under which wheel won't start spinning, rad
+  int min_tracking_wheels = 3;          // Min number of wheels that must be under error before driving 
 };
 
 struct SwerveKinematics
 {
   // Kinematics
   int nWheels = 4;
-  int pole_pairs = 7; // number of pole pairs in hub motors. Assuming 7 pole pairs from research. did not actually measure. Used for converting erpm to rpm, to calculate real velocities.
-  int dRatio;         // used to convert target wheel rad/sec to erpm
+  double vRobot = 48;                   // Nominal voltage of robot. Used for calculating no load speed, etc. 
+  int dRatio;                           // used to convert target wheel rad/sec to erpm
   Kinematics **kinematics = new Kinematics *[nWheels];
-  bool calibrated = 0; // Whether or not the robot has been calibrated
+
+  // Steering motor parameters 
+  bool calibrated = 0;                  // Whether or not the robot has been calibrated
+  double rmd_ratio = 8.0;               // ratio of RMD-X6 steering motor (does not include pulley stage)
+  double steering_pulley_ratio = 2.25;  // ratio of pulley stage on output 
+  double kv_steer = 60;                 // kv of steering motor, rpm/V
+  double yRatio = STEER_GEAR_RATIO;                               // Steer pulley stage ratio, >1
+
+  // Drive motor parameters (hub motors)
+  int pole_pairs = 7;                   // number of pole pairs in hub motors. Assuming 7 pole pairs from research. did not actually measure. Used for converting erpm to rpm, to calculate real velocities.
+  double kv_drive = 190;                // kv of hub motors 
 };
 
 struct LoopTiming
@@ -117,19 +122,17 @@ struct SwerveCAN
   int steerCanDelay = 100; // # of microseconds to delay sending steering CAN for
 };
 
-// PWM/Receiver stuff
 struct PWMReceiver
 {
   short chs = 8;                                                     // number of channels to read from receiver
   short chOff[8] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500}; // Channel offsets (calibrate to find these)
   Channel **channels = new Channel *[chs];
-  int rcTimeout = 100000; // number of microseconds before receiver timeout is tripped - make sure it is a good bit longer than 2000 microseconds
+  u_int32_t rcTimeout = 100000; // number of microseconds before receiver timeout is tripped - make sure it is a good bit longer than 2000 microseconds
   bool rcLost = 1;        // This is set to true if no receiver signal is received within the rcTimeout timeframe (microseconds)
   int estop_ch = 6;       // which Rx channel is used for motor enabling/SW e-stop. 0 index
   int mode_ch = 7;        // which Rx channel is used for setting mode
 };
 
-// Modes, safety, e-stop, debug
 struct Modes
 {
   char buff[100];       // String buffer for Serial
@@ -141,7 +144,6 @@ struct Modes
   bool zeroing = 0; // whether or not system is zeroing
 };
 
-// Robot state stuff
 struct RobotState
 {
   int ir[4] = {0, 0, 0, 0}; // status of IR sensor
@@ -149,7 +151,6 @@ struct RobotState
   double irPos[4] = {90 - 19.2, 270 - 9.5, 270 - 19.2, 90 - 9.6}; // absolute position if IR sensors, for calibrating position on startup, degrees. increasing rotates clockwise looking from the top
   int irPin[4] = {22, 24, 26, 28};                                // pins that ir sensors are hooked up to
   double mRPM[4] = {0, 0, 0, 0};                                  // Speed of drive motors (pre gear stage). In eRPM, I think...
-  double yRatio = STEER_GEAR_RATIO;                               // Steer pulley stage ratio, >1
   int motPol[4] = {1, 1, 1, 1};                                   // Used to switch motor direction depending on VESC configuration. Not implemented yet due to datatype issues. Just changing VESC parameters instead
 };
 

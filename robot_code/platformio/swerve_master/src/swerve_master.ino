@@ -15,6 +15,9 @@
 #include "PID.h";                    // For PID controllers
 #include "shared/LowPassFilter.cpp"; // Low pass filter class
 
+// Definitions
+#pragma region
+
 const int CHANNEL_PIN[] = {
     38, // left stick vertical, forward = (+)
     40, // right stick horizontal, R = (+)
@@ -26,9 +29,6 @@ const int CHANNEL_PIN[] = {
     52  // right switch, backwards = (-)
 };
 int rctemp[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Temp storage for rc value debugging
-
-// Definitions
-#pragma region
 
 #define RADIUS_SWERVE_ASSEMBLY 0.25 // distance to wheel swerve axes, meters
 #define DEAD_ZONE 0.1
@@ -49,7 +49,7 @@ int bringupMode = -1; // Bringup mode. set to -1 for normal operation, 0... are 
 // Instantiate structs
 SwerveTrajectory traj;
 pad_vars padVars;
-SwerveKinematics swerveKinematics;
+SwerveKinematics kin;
 LoopTiming loopTiming;
 Profiles profiles;
 Modes modes; // Handles different driving and control modes
@@ -71,8 +71,8 @@ Drive::Type types[] = {Drive::Type::VESC, Drive::Type::VESC, Drive::Type::ODRIVE
 // PWM/Receiver stuff
 PWMReceiver pwmReceiver;
 RobotState robotState;
-Drive **drive = new Drive *[swerveKinematics.nWheels];
-Steer **steer = new Steer *[swerveKinematics.nWheels];
+Drive **drive = new Drive *[kin.nWheels];
+Steer **steer = new Steer *[kin.nWheels];
 double aMaxSteer = 5000;  // Max angular acceleration of steer motor, in motor frame, rad/s^2. Safe starting value: 5000
 double wMaxSteer = 10000; // Max angular velocity of steer motor, in motor frame, rad/s. Safe starting value: 10000
 int doneHoming = 0;       // Used to determine when calibration sequence is finished. 1 = finished.
@@ -122,7 +122,7 @@ void setup()
   attachInterrupt(pwmReceiver.channels[5]->getPin(), calcCh6, CHANGE);
   attachInterrupt(pwmReceiver.channels[6]->getPin(), calcCh7, CHANGE);
   attachInterrupt(pwmReceiver.channels[7]->getPin(), calcCh8, CHANGE);
-  delay(100); // Wait for rc channels to initially detect, for zeroing
+  delay(100); // Wait for rc channels to initially detect, before zeroing
   // for (int i = 1; i < 4; i++){  // Zero spring centered joysticks 
   //   pwmReceiver.channels[i]->zero();
   // }
@@ -131,45 +131,40 @@ void setup()
   delay(3000); // Need a delay between CAN initialization and ODRIVE initialization (in the Drive class)
 
   // Kinematics and path planning setup
-  swerveKinematics.dRatio = swerveKinematics.pole_pairs * 60 / (2 * M_PI) / (.083 / 2); // used to convert m/s to rpm
-  for (int i = 0; i < swerveKinematics.nWheels; i++)
+  kin.dRatio = kin.pole_pairs * 60 / (2 * M_PI) / (.083 / 2); // used to convert m/s to rpm
+  for (int i = 0; i < kin.nWheels; i++)
   {
     robotState.irPos[i] = robotState.irPos[i]; // Correcting for polar coordinate frame
-    steer[i] = new Steer(wMaxSteer, aMaxSteer, robotState.yRatio, loopTiming.tInner, can.len, i);
-    drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], swerveKinematics.dRatio, loopTiming.tInner, can.len, i, types[i]);
-    swerveKinematics.kinematics[i] = new Kinematics(RADIUS_SWERVE_ASSEMBLY, DEAD_ZONE, i);
+    steer[i] = new Steer(wMaxSteer, aMaxSteer, kin.yRatio, loopTiming.tInner, can.len, i);
+    drive[i] = new Drive(traj.qd_max[0], traj.qdd_max[0], kin.dRatio, loopTiming.tInner, can.len, i, types[i]);
+    kin.kinematics[i] = new Kinematics(RADIUS_SWERVE_ASSEMBLY, DEAD_ZONE, i);
   }
-  planner = new Planner(loopTiming.tInner, 
-                        traj.qd_max[0], traj.qd_max[1], traj.qd_max[2], 
-                        traj.qdd_max[0], traj.qdd_max[1], traj.qdd_max[2], 
-                        traj.dz[0], traj.dz[1], traj.dz[2],
-                        traj.dzt[0], traj.dzt[1], traj.dzt[2], 
-                        modes.mode);
 
   // Set up pad pid classes
   dt = loopTiming.tInner / 1000000.0;
   pads = new Pads();
-  padx_pid = new PID(padVars.kp_x, padVars.ki_x, padVars.kd_x, dt, padVars.lag_x);
-  pady_pid = new PID(padVars.kp_y, padVars.ki_y, padVars.kd_y, dt, padVars.lag_y);
-  padz_pid = new PID(padVars.kp_z, padVars.ki_z, padVars.kd_z, dt, padVars.lag_z);
+  padx_pid = new PID(padVars.kp[0], padVars.ki[0], padVars.kd[0], dt, padVars.lag[0]);
+  pady_pid = new PID(padVars.kp[1], padVars.ki[1], padVars.kd[1], dt, padVars.lag[1]);
+  padz_pid = new PID(padVars.kp[2], padVars.ki[2], padVars.kd[2], dt, padVars.lag[2]);
 
   padx_pid->setSetpoint(0); // setpoint = 0 means try to put human center of pressure at middle of footpad
   pady_pid->setSetpoint(0);
   padz_pid->setSetpoint(0);
+
+  planner = new Planner(loopTiming.tInner, traj, padVars, kin);
 
   Serial.println("Startup Complete.");
 }
 
 void loop()
 {
-  startProfile(profiles.robotLoop);
+  // startProfile(profiles.robotLoop);
   // printWatchdogError(watchdog);
   // telemetry();
   loopTiming.now = micros();
   if (loopTiming.now - loopTiming.lastInner > loopTiming.tInner)
   {
     { // loop timing 
-    startProfile(profiles.loopTiming);
     if (loopTiming.behind)
     { // This means we can't keep up with the desired loop rate. Trip LED to indicate so
       digitalWrite(13, HIGH);
@@ -181,55 +176,23 @@ void loop()
       loopTiming.lastInner = loopTiming.lastInner + loopTiming.tInner;
       loopTiming.behind = true;
     }
-    endProfile(profiles.loopTiming);
     }
 
-    //*************************************************
-    //***************BEGIN FAST LOOP*******************
-    //*************************************************
-    if (modes.mode == 0)  // Tele-op mode *************************
-    { // 0 = tele-op
-      startProfile(profiles.mode0);
-
-      // PWM conditioning to send to planner
-      for (int k = 0; k < 4; k++){
-        
-        if (k != 3){
-          traj.input[k] = constrain(pwmReceiver.channels[k + 1]->getCh() / 500.0, -1.0, 1.0);
-        } else {
-          traj.input[3] = constrain(pwmReceiver.channels[0]->getCh() / 1000.0, -0.5, 0.5) + 0.5;
+    switch (modes.mode){  // Primary case statement for handling modes
+      case 0: // ********************************* Tele-op mode *********************************
+        for (int k = 0; k < 4; k++){
+          if (k != 3){
+            traj.input[k] = constrain(pwmReceiver.channels[k + 1]->getCh() / 500.0, -1.0, 1.0);
+          } else {
+            traj.input[3] = constrain(pwmReceiver.channels[0]->getCh() / 1000.0, -0.5, 0.5) + 0.5;
+          }
         }
-      }
-      // Serial.println("*******************");
-      // Serial.println(traj.input[0]);
-      // Serial.println(traj.input[1]);
-      // Serial.println(traj.input[2]);
-      // Serial.println(traj.input[3]);
-      // delay(50);
-      planner->plan(traj.input[0], traj.input[1], traj.input[2], traj.input[3]);
-
-      // Get results from planner
-      traj.qd_d[0] = planner->getTargetVX();
-      traj.qd_d[1] = planner->getTargetVY();
-      traj.qd_d[2] = planner->getTargetVZ();
-
-      // Serial.println("*************");
-      // Serial.println(traj.qd_d[0]);
-      // Serial.println(traj.qd_d[1]);
-      // Serial.println(traj.qd_d[2]);
-      // delay(50);
-
-      endProfile(profiles.mode0);
-      // *************************** riding modes ************************
-    }
-    else if (modes.mode > 0) // Non tele-op modes *****************
-    { // mode 0 = tele-op. all other modes > 0 (IMU = 1, force pads = 2)
-      startProfile(profiles.modeOther);
-      if (modes.mode == 2)
-      {                        // Begin force pad mode
+        planner->plan_teleop(traj.input[0], traj.input[1], traj.input[2], traj.input[3]);
+        break;
+      case 2: // ********************************* Pad riding mode *********************************
         double a_max = 15;     // limit max acceleration, m/s^2
         double v_max = 10;     // limit max velocity
-        double alpha_max = 20; // limit max angular acceleration, rad/s^2
+        // double alpha_max = 20; // limit max angular acceleration, rad/s^2
         double w_max = 30;     // limit max angular velocity, rad/s
 
         pads->calcVector();
@@ -252,45 +215,20 @@ void loop()
         // qd_d = constrain(traj.input[1] * padVars.kp_y, -v_max, v_max);   // velocity control. useful for bringup
 
         traj.qd_d[2] = constrain(padz_pid->compute(), -w_max, w_max);
-      }
 
-      if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300)
-      { // In an estop, immediately set velocities to zero, for now. May implement deceleration in the future
-        traj.qd_d[0] = 0;
-        traj.qd_d[1] = 0;
-        traj.qd_d[2] = 0;
-      }
-      // planner->plan(traj.input[0], traj.input[1], traj.input[2]);
-      endProfile(profiles.modeOther);
+        if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300){ planner->eStop(); }
+        planner->plan_pads(traj.input[0], traj.input[1], traj.input[2], traj.input[3]);
+        break;
     }
 
-    startProfile(profiles.kinematics);
-
-    for (int i = 0; i < swerveKinematics.nWheels; i++) // Calc wheel space from robot space 
-    {
-      if (modes.mode == 0)
-      { // tele-op
-        swerveKinematics.kinematics[i]->calc(traj.qd_d[0], traj.qd_d[1], -traj.qd_d[2] * sign(robotState.yRatio));
-      }
-      else
-      { // IMU riding
-        swerveKinematics.kinematics[i]->calc(traj.qd_d[0], traj.qd_d[1], -traj.qd_d[2] * sign(robotState.yRatio));
-      }
-    }
-    endProfile(profiles.kinematics);
-
-    startProfile(profiles.updateMotorSpeeds);
     int eStopChannel = pwmReceiver.channels[pwmReceiver.estop_ch]->getCh();
-    bool teleop = pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < -300;
-
-    for (int i = 0; i < swerveKinematics.nWheels; i++) // Send commands to all motors 
+    for (int i = 0; i < kin.nWheels; i++) // Send commands to all motors 
     {
       if (modes.mode == 0)
       {
-        steer[i]->yawTo(swerveKinematics.kinematics[i]->getTargetSteer(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+        steer[i]->motTo(planner->getMotAngle(i), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
-        // drive[i]->slewVel(pwmReceiver.channels[0]->getCh() / 100.0, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
-        drive[i]->slewVel(swerveKinematics.kinematics[i]->getTargetVel(), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+        drive[i]->slewVel(planner->getDriveWheelSpeed(i), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         delayMicroseconds(can.driveCanDelay);
       }
       else
@@ -298,9 +236,9 @@ void loop()
         switch (bringupMode)
         {
         case -1: // 0 = all DOFs simultaneously active
-          steer[i]->yawTo(swerveKinematics.kinematics[i]->getTargetSteer(), eStopChannel, pwmReceiver.rcLost);
+          steer[i]->yawTo(kin.kinematics[i]->getTargetSteer(), eStopChannel, pwmReceiver.rcLost);
           delayMicroseconds(can.driveCanDelay);
-          drive[i]->setVel(swerveKinematics.kinematics[i]->getTargetVel(), eStopChannel, pwmReceiver.rcLost);
+          drive[i]->setVel(kin.kinematics[i]->getTargetVel(), eStopChannel, pwmReceiver.rcLost);
           delayMicroseconds(can.driveCanDelay);
           break;
         case 0: // 1 = x axis bringup
@@ -327,7 +265,6 @@ void loop()
         }
       }
     }
-
     { // Serial prints @ reduced rate 
     plotCounter++;
     bool plot = plotCounter % 20 == 0;
@@ -335,25 +272,34 @@ void loop()
     {
       // Serial.print("Mode: ");
       // Serial.println(modes.mode);
-      // Serial.print("X_d:");
-      // Serial.print(traj.input[0]);
-      // Serial.print(",");
-      // Serial.print("Y_d:");
-      // Serial.print(traj.input[1]);
-      // Serial.print(",");
-      // Serial.print("Z_d:");
-      // Serial.println(traj.input[2]);
+
+      // Serial.print("Target VX:");
+      // Serial.print(planner->getTargetVX());
+      // Serial.print(" | ");
+      // Serial.print("Target VY:");
+      // Serial.print(planner->getTargetVY());
+      // Serial.print(" | ");      Serial.print("Target VZ:");
+      // Serial.println(planner->getTargetVZ());
+
+      Serial.print("Steer0:");
+      Serial.print(planner->getSteerAngle(0) * 180/PI);
+      Serial.print(" | ");
+      Serial.print("Mot0:");
+      Serial.print(planner->getMotAngle(0) * 180/PI);
+      Serial.print(" | ");
+      Serial.print("Drive0:");
+      Serial.print(planner->getDriveWheelSpeed(0));
+      Serial.print(" | ");
+      Serial.print("Temp: ");
+      Serial.println(planner->getTemp());
       // pads->printDebug();
     }
-    endProfile(profiles.updateMotorSpeeds);
     }
   }
   else  // Overtiming 
   {
     loopTiming.behind = false;
   }
-
-  startProfile(profiles.outerLoop);
   if (loopTiming.now - loopTiming.lastOuter > loopTiming.tOuter)  // Slow loop
   {
     loopTiming.lastOuter = loopTiming.lastOuter + loopTiming.tOuter;
@@ -426,30 +372,26 @@ void loop()
       delay(20);
     }
   }
-  endProfile(profiles.outerLoop);
-  endProfile(profiles.robotLoop);
   // printProfiles(profiles);
 }
 
-// *********************************************** HELPER FUNCTIONS **************************************************************
-
+// Helper Functions 
+#pragma region
 // CALIBRATION 
 void calMotor(SwerveCAN &can)
 {
-  for (int j = 0; j < swerveKinematics.nWheels; j++)
+  for (int j = 0; j < kin.nWheels; j++)
   {
     steer[j]->setHoming(2); // set homing mode to true for all axes
     steer[j]->motTo(0, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
   }
-  delay(750);          // Give motor time to move to zero position if it is wound up
-  double fineTune = 1; // to step in less than 1 deg increments - this is the ratio (0.2 would be in 0.2 degree increments
-  double angTarget = 0;
-  for (int i = 0; i < (int)(360 * abs(robotState.yRatio) * 1.5 / fineTune); i++)
+  delay(1000);          // Give motor time to move to zero position if it is wound up
+  double fineTune = 1.0; // to step in less than 1 deg increments - this is the ratio (0.2 would be in 0.2 degree increments
+  for (int i = 0; i < (int)(360 * abs(kin.yRatio) * 1.5 / fineTune); i++)
   {
     checkRx();
-    for (int j = 0; j < swerveKinematics.nWheels; j++)
+    for (int j = 0; j < kin.nWheels; j++)
     {
-      angTarget = i * fineTune;
       can.pos = i * fineTune;
       if (steer[j]->getHoming() == 2 && digitalRead(robotState.irPin[j]) == 1)
       { // calibration started with IR triggered
@@ -465,31 +407,29 @@ void calMotor(SwerveCAN &can)
       { // position signal should persist, but motor should stop moving after cal marker is detected
         can.pos = steer[j]->getMPos();
       }
-      steer[j]->motTo(can.pos, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+      steer[j]->motTo(can.pos * PI / 180.0, pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
     }
     delayMicroseconds(800);
     doneHoming = 1;
-    for (int j = 0; j < swerveKinematics.nWheels; j++)
+    for (int j = 0; j < kin.nWheels; j++)
     {
       doneHoming = doneHoming && steer[j]->getHoming() == 0;
     }
     if (doneHoming == 1)
     {
-      swerveKinematics.calibrated = 1; // set calibration flag to true
+      kin.calibrated = 1; // set calibration flag to true
     }
     if (doneHoming == 1)
       // while (1){}  % used to freeze homing positions after cal to measure offsets with phone/level
       break; // break from loop once all targets have been found
   }
 }
-
 double mapDouble(double x, double min_in, double max_in, double min_out, double max_out)
 {
   double ret = (x - min_in) / (max_in - min_in);
   ret = ret * (max_out - min_out) + min_out;
   return ret;
 }
-
 // This function detects if a receiver signal has been received recently. Used for safety, etc.
 void checkRx()
 {
@@ -502,7 +442,6 @@ void checkRx()
     pwmReceiver.rcLost = 0;
   }
 }
-
 void telemetry()
 {
   unsigned long time = micros();
@@ -514,7 +453,6 @@ void telemetry()
 
   Serial.println("\n");
 }
-
 // 2.4 GHz RECEIVER  FUNCTIONS
 void calcCh1()
 {
@@ -548,3 +486,4 @@ void calcCh8()
 {
   pwmReceiver.channels[7]->calc();
 }
+#pragma endregion

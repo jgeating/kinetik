@@ -21,13 +21,9 @@ Steer::Steer(double vMax, double aMax, double yRatio, double tInner, int len, in
 
 // This function traverses to a steer position, while abiding by acceleration and velocity limits
 void Steer::yawTo(double ang, int ch, int rcLost){  
-
   // global variables only used here: v, aMax, vMax, yRatio
-
   // global variables used only here, init, and calibrate: steer, mPos, 
-
   // global variables used everywhere: tInner
-
   // functions only used here and calibrate: motTo
   
   double delPos = ang - this->steer;  // steer error term
@@ -62,6 +58,7 @@ void Steer::yawTo(double ang, int ch, int rcLost){
 
 // This function sends a steer motor command - CAN layer, does not account for acceleration limits. Safety cutoff is done here
 void Steer::motTo(double ang, int ch, int rcLost){
+  ang = ang * 180.0 / PI; // rmd operates with degree as unit
   //this->mPos = ang;
   // used in yawTo(), calMotor()
   bool ext = false;

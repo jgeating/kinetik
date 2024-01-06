@@ -1,7 +1,6 @@
 #ifndef _SWERVE_UTILS_
 #define _SWERVE_UTILS_
 
-
 //************************** SUPER GENERIC FUNCTIONS ******************
 //return the sign of a number
 double sign(double num);
