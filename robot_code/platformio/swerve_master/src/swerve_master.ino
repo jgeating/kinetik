@@ -228,7 +228,7 @@ void loop()
       {
         steer[i]->motTo(planner->getMotAngle(i), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
-        drive[i]->slewVel(planner->getDriveWheelSpeed(i), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
+        drive[i]->setVel(planner->getDriveWheelSpeed(i), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         delayMicroseconds(can.driveCanDelay);
       }
       else
@@ -399,8 +399,10 @@ void calMotor(SwerveCAN &can)
       }
       if (steer[j]->getHoming() == 1 && digitalRead(robotState.irPin[j]) == 0)
       { // Hit target fresh
-        steer[j]->setYaw(robotState.irPos[j]);
-        steer[j]->setMPos(can.pos);
+        planner->setSteerAngle(robotState.irPos[j] * PI / 180.0, j);
+        planner->setMotAngle(can.pos * PI / 180.0, j);
+        // steer[j]->setYaw(robotState.irPos[j]);
+        // steer[j]->setMPos(can.pos);
         steer[j]->setHoming(0);
       }
       if (steer[j]->getHoming() == 0)

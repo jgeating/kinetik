@@ -41,7 +41,7 @@ class Planner
     double s_mot_q[4] = {0, 0, 0, 0}; // Current steering motor positions, radians
     double s_state[4] = {0, 0, 0, 0}; // Current steering state 
     double s_error[4] = {0, 0, 0, 0}; // Steering error, radians 
-    int s_dir[4] = {1, 1, 1, 1};      // Contains direction of wheel, whether inverted (1) or not (-1)
+    double s_dir[4] = {1, 1, 1, 1};      // Contains direction of wheel, whether inverted (1) or not (-1)
     double s_ratio;                    // Steering gear ratio, motor to yaw stage 
     double s_qd_max;                  // max steering stage velocity, rad/s
     double s_qdd_max;                 // max steering stage acceleration, rad/s^2
@@ -59,6 +59,7 @@ class Planner
 
     // Functions
     int steerTo(double ang, int ind);                  // Steers wheels based on slew and state limits  
+    int driveTo(double vel, int ind);         // Adjusts wheel velocity state vs. desired based on slew limits etc. 
     int calcFromAccels();                     // for planning in acceleration control
     int calcFromVels();                       // main private planning function
     double sign(double x);                       // returns the sign of the number, either 1 or -1
@@ -76,6 +77,8 @@ class Planner
     // Setters, getters
     void eStop();
     void setMode(int mode);
+    void setSteerAngle(double ang, int ind);
+    void setMotAngle(double angle, int ind);
     void setZeros(double x_in, double y_in, double z_in, double gain_in);
     double getTargetVX();
     double getTargetVY();

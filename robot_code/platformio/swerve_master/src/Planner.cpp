@@ -79,17 +79,18 @@ int Planner::plan_teleop(double x_in, double y_in, double z_in, double gain_in) 
   for (int i = 0; i < 4; i++){
     kinematics[i]->calc(this->qd_d[0], this->qd_d[1], this->qd_d[2]);
     this->steerTo(kinematics[i]->getTargetSteer(), i);
+    this->driveTo(kinematics[i]->getTargetVel(), i);
     n_errors = 0;
     if (this->s_error[i] > this->s_error_max){
       n_errors += 1;
     }
   }
-  if (n_errors > 2){    // If 3 or more wheels are outside of error bounds, 
-    this->qd_d[0] = 0;
-    this->qd_d[1] = 0;
-    this->qd_d[2] = 0;
-  }
-  this->temp = kinematics[0]->getTargetSteer();
+  // if (n_errors > 2){    // If 3 or more wheels are outside of error bounds, 
+    // this->qd_d[0] = 0;
+    // this->qd_d[1] = 0;
+    // this->qd_d[2] = 0;
+  // }
+  this->temp = this->d_qd[0];
   return 0;
 }
 
@@ -141,19 +142,24 @@ int Planner::steerTo(double ang, int ind){
   // if (sign(delPos*v[mot]) == -1) v[mot] = 0;      // velocity should never be pushing away from setpoint, even if it breaks max accel limit
   // double acc = ((abs(this->s_error[ind]) > minStop) - 0.5) * 2.0;  // takes a bool for acceleration direction and makes it 1 or -1
   if (abs(this->s_error[ind]) > minStop){
-    this->s_qd[ind] = this->s_qd[ind] + sign(this->s_error[ind]) * this->s_qdd_max;    // Speed up or coast (coasting done with constrain)
+    this->s_qd[ind] = this->s_qd[ind] + sign(this->s_error[ind]) * this->s_qdd_max * this->dt;    // Speed up or coast (coasting done with constrain)
   } else {
-    if (abs(this->s_qd[ind]) < this->s_qd_max) {
+    if (abs(this->s_q[ind]) < this->s_qd_max * this->dt) {
       this->s_qd[ind] = 0;  // If almost at zero, just set to zero. This prevents oscillating about zero with qd_max vel 
     } else {
-      this->s_qd[ind] = this->s_qd[ind] - sign(this->s_qd[ind]) * this->s_qd_max;   // Slow down
+      this->s_qd[ind] = this->s_qd[ind] - sign(this->s_qd[ind]) * this->s_qdd_max * this->dt;   // Slow down
     }
   }
   this->s_qd[ind] = lim(this->s_qd[ind], -1 * this->s_qd_max, this->s_qd_max);
 
   double delYaw = this->s_qd[ind] * this->dt;
   this->s_q[ind] = this->s_q[ind] + delYaw; 
-  this->s_mot_q[ind] = this->s_mot_q[ind] + delYaw * this->s_ratio;
+  this->s_mot_q[ind] = this->s_mot_q[ind] - delYaw * this->s_ratio; // Minus sign added 1/6/2024 because steering was reversed. definitely a better way
+  return 0;
+}
+
+int Planner::driveTo(double vel, int ind){
+  this->d_qd[ind] = vel * this->s_dir[ind];
   return 0;
 }
 
@@ -217,6 +223,12 @@ double Planner::getTargetVY() {
 }
 double Planner::getTargetVZ() {
   return this->qd[2];
+}
+void Planner::setSteerAngle(double ang, int ind){
+  this->s_q[ind] = ang;
+}
+void Planner::setMotAngle(double angle, int ind){
+  this->s_mot_q[ind] = angle;
 }
 double Planner::getSteerAngle(int ind){
   return this->s_q[ind];
