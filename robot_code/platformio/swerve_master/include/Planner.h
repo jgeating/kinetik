@@ -3,6 +3,8 @@
 
 #include "Kinematics.h"
 #include "Swerve.h"
+#include "PID.h"
+#include "shared/utils.h"
 
 // Robot level planning
 class Planner
@@ -20,6 +22,13 @@ class Planner
     // Vest related
     double in0[3] = {0, 0, 0};    // zeros for input angles from IMU(s), rad
     double input[3] = {0, 0, 0};  // input for various control modes, units dependent on control mode
+
+    // Pads related
+    PID *padx_pid;
+    PID *pady_pid;
+    PID *padz_pid;
+    double p_qd_max[3];
+    double p_qdd_max[3];
   
     // Kinematics/trajectory related 
     double q[3] = {0, 0, 0};      // Current position/orientation, x/y/yaw, m or rad

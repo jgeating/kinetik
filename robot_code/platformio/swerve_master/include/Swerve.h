@@ -13,7 +13,7 @@ struct pad_vars
 {
   // Kinematics parameters
   float qd_max[3] = {10, 10, 30};  // Max speeds in weight control mode {m/s, m/s, rad/s}
-  float qdd_max[3] = {15, 15, 60}; // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
+  float qdd_max[3] = {15, 15, 20}; // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
 
   // Control loop parameters
   float kp[3] = {80, 20, 50};  // Position term for weight control loop
@@ -131,6 +131,7 @@ struct PWMReceiver
   bool rcLost = 1;              // This is set to true if no receiver signal is received within the rcTimeout timeframe (microseconds)
   int estop_ch = 6;             // which Rx channel is used for motor enabling/SW e-stop. 0 index
   int mode_ch = 7;              // which Rx channel is used for setting mode
+  int remote_ch = 3;            // Chick Rx channel is hooked up to the e-skate remote (for imu/pad control)
 };
 
 struct Modes

@@ -160,7 +160,7 @@ void loop()
 {
   // startProfile(profiles.robotLoop);
   // printWatchdogError(watchdog);
-  // telemetry();
+  telemetry();
   loopTiming.now = micros();
   if (loopTiming.now - loopTiming.lastInner > loopTiming.tInner)
   {
@@ -190,80 +190,17 @@ void loop()
         planner->plan_teleop(traj.input[0], traj.input[1], traj.input[2], traj.input[3]);
         break;
       case 2: // ********************************* Pad riding mode *********************************
-        double a_max = 15;     // limit max acceleration, m/s^2
-        double v_max = 10;     // limit max velocity
-        // double alpha_max = 20; // limit max angular acceleration, rad/s^2
-        double w_max = 30;     // limit max angular velocity, rad/s
-
+        double hand_remote_val = constrain(pwmReceiver.channels[3]->getCh() / 1000.0, -0.5, 0.5) + 0.5; // ch 3 rewired to read value from handheld e-skate remote 
         pads->calcVector();
-        padx_pid->setInput(pads->getX());
-        pady_pid->setInput(pads->getY());
-        padz_pid->setInput(pads->getZ());
-
-        // qdd_d = traj.input[0] * padVars.kp_x;    // driving without PID controller, just P controller
-        // qdd_d = constrain(qdd_d, -a_max, a_max);
-        traj.qdd_d[0] = constrain(padx_pid->compute(), -a_max, a_max);
-        traj.qd_d[0] = constrain(traj.qd_d[0] - traj.qdd_d[0] * dt, -v_max, v_max);
-        // qd_d = constrain(traj.input[0] * padVars.kp_x, -v_max, v_max);   // velocity control. useful for bringup
-        // qdd_d = traj.input[1] * padVars.kp_y;    // driving without PID controller, just P controller
-        // qdd_d = constrain(qdd_d, -a_max, a_max);
-
-        // traj.qdd_d[1] = constrain(pady_pid->compute(), -a_max, a_max);
-        // traj.qd_d[1] = constrain(traj.qd_d[1] + traj.qdd_d[1] * dt, -v_max, v_max);
-        traj.qd_d[1] = 0;
-        // traj.qd_d[1] = constrain(pady_pid->compute(), -v_max, v_max);
-        // qd_d = constrain(traj.input[1] * padVars.kp_y, -v_max, v_max);   // velocity control. useful for bringup
-
-        traj.qd_d[2] = constrain(padz_pid->compute(), -w_max, w_max);
-
-        if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300){ planner->eStop(); }
-        planner->plan_pads(traj.input[0], traj.input[1], traj.input[2], traj.input[3]);
+        planner->plan_pads(pads->getX(), pads->getY(), pads->getZ(), hand_remote_val);
+        if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300 || modes.zeroing){ planner->eStop(); }
         break;
     }
-
-    int eStopChannel = pwmReceiver.channels[pwmReceiver.estop_ch]->getCh();
-    for (int i = 0; i < kin.nWheels; i++) // Send commands to all motors 
-    {
-      if (modes.mode == 0)
-      {
+    for (int i = 0; i < kin.nWheels; i++){ // Send commands to all motors 
         steer[i]->motTo(planner->getMotAngle(i), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         delayMicroseconds(can.steerCanDelay); // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
         drive[i]->setVel(planner->getDriveWheelSpeed(i), pwmReceiver.channels[pwmReceiver.estop_ch]->getCh(), pwmReceiver.rcLost);
         delayMicroseconds(can.driveCanDelay);
-      }
-      else
-      {
-        switch (bringupMode)
-        {
-        case -1: // 0 = all DOFs simultaneously active
-          steer[i]->yawTo(kin.kinematics[i]->getTargetSteer(), eStopChannel, pwmReceiver.rcLost);
-          delayMicroseconds(can.driveCanDelay);
-          drive[i]->setVel(kin.kinematics[i]->getTargetVel(), eStopChannel, pwmReceiver.rcLost);
-          delayMicroseconds(can.driveCanDelay);
-          break;
-        case 0: // 1 = x axis bringup
-          steer[i]->yawTo(180, eStopChannel, pwmReceiver.rcLost);
-          delayMicroseconds(can.driveCanDelay);
-          drive[i]->setVel(traj.qd_d[0], eStopChannel, pwmReceiver.rcLost);
-          delayMicroseconds(can.driveCanDelay);
-          break;
-        case 1:                                                   // 2 = y axis bringup
-          steer[i]->yawTo(-90, eStopChannel, pwmReceiver.rcLost); // should point forwards
-          delayMicroseconds(can.driveCanDelay);
-          drive[i]->setVel(traj.qd_d[1], eStopChannel, pwmReceiver.rcLost);
-          delayMicroseconds(can.driveCanDelay);
-          break;
-        case 2:                                                             // 3 = z axis bringup
-          steer[i]->yawTo(-45 + i * -90, eStopChannel, pwmReceiver.rcLost); // should point CCW
-          delayMicroseconds(can.driveCanDelay);
-          drive[i]->setVel(traj.qd_d[2], eStopChannel, pwmReceiver.rcLost);
-          delayMicroseconds(can.driveCanDelay);
-          break;
-        default:
-          Serial.println("error parsing bringup mode. This is a bug");
-          break;
-        }
-      }
     }
     { // Serial prints @ reduced rate 
     plotCounter++;
@@ -281,17 +218,25 @@ void loop()
       // Serial.print(" | ");      Serial.print("Target VZ:");
       // Serial.println(planner->getTargetVZ());
 
-      Serial.print("Steer0:");
-      Serial.print(planner->getSteerAngle(0) * 180/PI);
-      Serial.print(" | ");
-      Serial.print("Mot0:");
-      Serial.print(planner->getMotAngle(0) * 180/PI);
-      Serial.print(" | ");
-      Serial.print("Drive0:");
-      Serial.print(planner->getDriveWheelSpeed(0));
-      Serial.print(" | ");
-      Serial.print("Temp: ");
-      Serial.println(planner->getTemp());
+      // Serial.print("Steer0:");
+      // Serial.print(planner->getSteerAngle(0) * 180/PI);
+      // Serial.print(" | ");
+      // Serial.print("Mot0:");
+      // Serial.print(planner->getMotAngle(0) * 180/PI);
+      // Serial.print(" | ");
+      // Serial.print("Drive0:");
+      // Serial.print(planner->getDriveWheelSpeed(0));
+      // Serial.print(" | ");
+      // Serial.print("Temp: ");
+      // Serial.println(planner->getTemp());
+
+      for (int j = 0; j < 8; j++){
+        Serial.print("Channel ");
+        Serial.print(j);
+        Serial.print(": ");
+        Serial.println(pwmReceiver.channels[j]->getCh());
+      }
+      Serial.println("************");
       // pads->printDebug();
     }
     }
@@ -328,48 +273,34 @@ void loop()
       modes.eStop = 0; // Also disable e-stop if tripped
       modes.zeroing = 0;
     }
-    if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > -300 && pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < 300)
+    if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > -150 && pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() < 150)  // Mode switch is centered
     { // IMU zeroing mode
       if (modes.mode != 2)
       {
-        Serial.println("Mode 2 entered");
+        Serial.println("Mode 2 entered (pad steering)");
         modes.mode = 2;
         delay(100);
       }
-      // planner->setMode(2);
       modes.zeroing = 0;
     }
-    if (pwmReceiver.channels[pwmReceiver.mode_ch]->getCh() > 300)
-    { // riding mode, blue stick down position
-      if (!modes.zeroing)
-      {
+    if (pwmReceiver.channels[pwmReceiver.remote_ch]->getCh() < 150 || pwmReceiver.channels[pwmReceiver.remote_ch]->getCh() < 150) // remote pulled back or transmitter in zeroing mode
+    { 
+      if (!modes.zeroing) { 
         Serial.println("Zeroing entered");
+        modes.zeroing = 1;
       }
-      modes.zeroing = 1;
-      switch (modes.mode)
-      {
-      case 1:
-        Serial.println("IMU zeroing not supported");
-        break;
-      case 2:
-        pads->calibrate();
-        traj.qd_d[0] = 0;
-        traj.qd_d[1] = 0;
-        traj.qd_d[2] = 0;
-        Serial.println("Pads zeroing");
-        break;
-      default:
-        Serial.println("Unable to parse mode to enter zeroing. This is probably a bug");
+      switch (modes.mode){
+        case 1:
+          Serial.println("IMU zeroing not supported");
+          break;
+        case 2:
+          Serial.println("Pads zeroing");
+          pads->calibrate();
+          planner->eStop();
+          break;
+        default:
+          Serial.println("Unable to parse mode to enter zeroing. This is probably a bug");
       }
-    }
-
-    // Debug related
-    if (modes.debugRiding)
-    {
-      Serial.println("***********");
-      Serial.println(traj.qd_d[0]);
-      Serial.println(traj.qd_d[1]);
-      delay(20);
     }
   }
   // printProfiles(profiles);

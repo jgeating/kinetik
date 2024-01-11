@@ -1,35 +1,41 @@
 #include "Planner.h"
-#include "shared/utils.h"
 #include <cmath>
 
 Planner::Planner(double tInner, SwerveTrajectory traj, pad_vars padVars, SwerveKinematics kin){
   this->mode = 0;
   this->dt = tInner / 1000000.0;  // length of time step, microseconds
 
-  // max velocity allowed, m/s or rad/s
-  this->qd_max[0] = traj.qd_max[0];
+  // Trajectory constaints 
+  this->qd_max[0] = traj.qd_max[0];                     // max velocity allowed, m/s or rad/s
   this->qd_max[1] = traj.qd_max[1];
   this->qd_max[2] = traj.qd_max[2];
-
-  // max acceleration allowed, m/s^2 or rad/s^2
-  this->qdd_max[0] = traj.qdd_max[0];
+  this->qdd_max[0] = traj.qdd_max[0];                   // max acceleration allowed, m/s^2 or rad/s^2
   this->qdd_max[1] = traj.qdd_max[1];
   this->qdd_max[2] = traj.qdd_max[2];
-
-  // dead band zone, in m/s or rad/s. robot will not move if desired is slower than this
-  this->dband[0] = traj.dz[0];
+  this->dband[0] = traj.dz[0];                          // dead band zone, in m/s or rad/s. robot will not move if desired is slower than this
   this->dband[1] = traj.dz[1];
   this->dband[2] = traj.dz[2];
-
-  // deadband for tele-op
-  this->dband_teleop[0] = traj.dzt[0];
+  this->dband_teleop[0] = traj.dzt[0];                  // deadband for tele-op
   this->dband_teleop[1] = traj.dzt[1];
   this->dband_teleop[2] = traj.dzt[2];
-
-  // max amount velocity can change by in one dt
-  this->del_qd_max[0] = this->qdd_max[0] * this->dt;
+  this->del_qd_max[0] = this->qdd_max[0] * this->dt;    // max amount velocity can change by in one dt
   this->del_qd_max[1] = this->qdd_max[1] * this->dt;
   this->del_qd_max[2] = this->qdd_max[2] * this->dt;
+
+  // Pad steering related 
+  padx_pid = new PID(padVars.kp[0], padVars.ki[0], padVars.kd[0], dt, padVars.lag[0]);
+  pady_pid = new PID(padVars.kp[1], padVars.ki[1], padVars.kd[1], dt, padVars.lag[1]);
+  padz_pid = new PID(padVars.kp[2], padVars.ki[2], padVars.kd[2], dt, padVars.lag[2]);
+  padx_pid->setSetpoint(0); // setpoint = 0 means try to put human center of pressure at middle of footpad
+  pady_pid->setSetpoint(0);
+  padz_pid->setSetpoint(0);
+  this->p_qd_max[0] = padVars.qd_max[0];    // Max velocity allowed during pad riding
+  this->p_qd_max[1] = padVars.qd_max[1];
+  this->p_qd_max[2] = padVars.qd_max[2];
+  this->p_qdd_max[0] = padVars.qdd_max[0];  // Max acceleration allowed during pad riding 
+  this->p_qdd_max[1] = padVars.qdd_max[1];
+  this->p_qdd_max[2] = padVars.qdd_max[2];
+  
 
   // Steering variables
   this->s_ratio = kin.rmd_ratio * kin.steering_pulley_ratio;
@@ -95,20 +101,35 @@ int Planner::plan_teleop(double x_in, double y_in, double z_in, double gain_in) 
 }
 
 int Planner::plan_pads(double x_in, double y_in, double z_in, double gain_in){
-    this->input[0] = x_in;
-    this->input[1] = y_in;
-    this->input[2] = z_in;
-    this->gain = gain_in;
-    // this->setZeros(input[0], input[1], input[2], gain_in);
+    padx_pid->setInput(x_in);
+    pady_pid->setInput(y_in);
+    padz_pid->setInput(z_in);
+
+    int control_mode[4] = {0, 2, 0}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
+
+    this->setZeros(input[0], input[1], input[2], gain_in);
     for (int i = 0; i < 3; i++) {
-      if (mode == 2) {  // Velocity control
-        this->qd_d[i] = this->input[i] * this->qd_max[i];
-      } else if (mode == 3) {  // Acceleration control
-        this->qdd_d[i] = this->input[i] * this->qdd_max[i];
+      double pid_output = 0;
+      switch(i){
+        case 0: 
+          pid_output = padx_pid->compute();
+          break;
+        case 1: 
+          pid_output = pady_pid->compute();
+          break;
+        case 2: 
+          pid_output = padz_pid->compute();
+          break;
       }
-    }
-    if (mode == 3) {
-      this->calcFromAccels();  // set velocities based off of acceleration inputs
+      switch (control_mode[i]) {
+        case 1: // Velocity control mode
+          this->qd_d[i] = constrain(pid_output, -this->p_qd_max[i], this->p_qd_max[i]);
+          break;
+        case 2: // Acceleration control mode
+          this->qdd_d[i] = constrain(pid_output, -this->p_qdd_max[i], this->p_qdd_max[i]);
+          this->qd_d[i] = constrain(this->qd_d[i] - this->qdd_d[i] * this->dt, -this->p_qd_max[i], this->p_qd_max[i]);
+          break;
+      }
     }
     return this->calcFromVels();
 }
@@ -163,7 +184,7 @@ int Planner::driveTo(double vel, int ind){
   return 0;
 }
 
-int Planner::calcFromVels() {
+int Planner::calcFromVels() { // Robot level slew limits etc. would be applied here 
   // double del_qd = 0;  // termporary variable for velocity error
   for (int i = 0; i < 3; i++) {
     // del_qd = this->qd_d[i] - this->qd[i];  // velocity error term
