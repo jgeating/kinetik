@@ -8,18 +8,18 @@
 #include <math.h>
 
 #define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
-
+ 
 struct pad_vars
 {
   // Kinematics parameters
-  float qd_max[3] = {10, 10, 30};  // Max speeds in weight control mode {m/s, m/s, rad/s}
-  float qdd_max[3] = {15, 15, 60}; // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
+  float qd_max[3] = {100, 100, 100};   // Max speeds in weight control mode {m/s, m/s, rad/s}
+  float qdd_max[3] = {50, 50, 50};  // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
 
   // Control loop parameters
-  float kp[3] = {80, 20, 50};  // Position term for weight control loop
-  float ki[3] = {0, 0, 0};     // Integral term
-  float kd[3] = {-8, 0, 0};    // Derivative term, should always be negative
-  float lag[3] = {10, 10, 10}; // No. of samples for lag filter
+  float kp[3] = {-60, -30, -40};      // Position term for weight control loop. {x, y, z}. Was 80, 20, 50
+  float ki[3] = {0,   0,  0};      // Integral term
+  float kd[3] = {4, 4,  .1};      // Derivative term, should always be negative
+  float lag[3] = {3,  3,  4};      // No. of samples for lag filter
 };
 
 struct vest_vars
@@ -63,9 +63,11 @@ struct SwerveTrajectory
   double input[4] = {0, 0, 0, 0};     // hold inputs. Index 3 is global gain
 
   // Steering DOF parameters
-  double s_qdd_max = 10000;            // max robot acceleration, erpm/sec, eventually m/s^2
+  double s_qdd_max = 10000;           // max robot acceleration, erpm/sec, eventually m/s^2
   double s_error_max = 10 * PI / 180; // Max tracking error under which wheel won't start spinning, rad
   int min_tracking_wheels = 3;        // Min number of wheels that must be under error before driving
+
+  double qd_r[3] = {3, 0, 0};         // regularization vector
 };
 
 struct SwerveKinematics
@@ -91,12 +93,12 @@ struct SwerveKinematics
 struct LoopTiming
 {
   // Loop Timing Variables
-  double tInner = 4000;                                 // Target length of inner loop controller, microseconds
+  double tInner = 2500;                                 // Target length of inner loop controller, microseconds
   double tOuter = 50000;                                // Target length of outer (second) loop controller, microseconds
   unsigned long lastInner = 0;                          // last time counter of inner loop
   unsigned long lastOuter = 0;                          // last time counter of outer loop
   unsigned long now = 0;                                // variable to store current time, to avoid multiple calls to micros() function
-  bool behind = 0;                                      // If Due can't keep up with loop rate, this bool will become true
+  bool behind = false;                                  // If Due can't keep up with loop rate, this bool will become true
   unsigned long timer[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0}; // Timers used to measure computation lengths of various functions, loops, etc.
 };
 
@@ -122,26 +124,22 @@ struct SwerveCAN
   int steerCanDelay = 100; // # of microseconds to delay sending steering CAN for
 };
 
-struct PWMReceiver
+enum class Mode
 {
-  short chs = 8;                                                     // number of channels to read from receiver
-  short chOff[8] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500}; // Channel offsets (calibrate to find these)
-  Channel **channels = new Channel *[chs];
-  u_int32_t rcTimeout = 100000; // number of microseconds before receiver timeout is tripped - make sure it is a good bit longer than 2000 microseconds
-  bool rcLost = 1;              // This is set to true if no receiver signal is received within the rcTimeout timeframe (microseconds)
-  int estop_ch = 6;             // which Rx channel is used for motor enabling/SW e-stop. 0 index
-  int mode_ch = 7;              // which Rx channel is used for setting mode
+  TELEOP,
+  WEIGHT_CONTROL,
+  PADS
 };
 
 struct Modes
 {
-  char buff[100];       // String buffer for Serial
-  int mode = 0;         // 0 = RC mode (teleop), 1 = weight control mode
-  int eStop = 0;        // e-stop variable for safety
-  bool debugRx = 0;     // whether or not to debug receiver
-  bool debugTiming = 1; // whether or not to debug timing, look at loop lengths, etc.
-  bool debugRiding = 0;
-  bool zeroing = 0; // whether or not system is zeroing
+  char buff[100];          // String buffer for Serial
+  Mode mode = Mode::TELEOP;    // 0 = RC mode (teleop), 1 = weight control mode
+  bool eStop = false;      // e-stop variable for safety
+  bool debugRx = false;    // whether or not to debug receiver
+  bool debugTiming = true; // whether or not to debug timing, look at loop lengths, etc.
+  bool debugRiding = false;
+  bool zeroing = false; // whether or not system is zeroing
 };
 
 struct RobotState

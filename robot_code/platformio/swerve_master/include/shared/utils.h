@@ -8,6 +8,8 @@ double sign(double num);
 //constrain a number within a range
 double constr(double in, double low, double high);
 
+double dewrap(double x);
+
 typedef enum {
   CAN_PACKET_SET_DUTY = 0,
   CAN_PACKET_SET_CURRENT,
