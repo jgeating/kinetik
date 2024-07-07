@@ -33,7 +33,7 @@ void loop()
   
   while(1)  // Endless loop
   {
-    delay(1);
+    delay(10);
     
     // Send the messages
     if(++nTimer0 == 1000)
