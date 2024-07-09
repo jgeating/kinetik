@@ -41,13 +41,16 @@ void setup(void) {
 void loop() {
 
   // ***** Steering *****
-  pos = pos - 0.001;
-  Serial.print("Steering position: ");
-  Serial.println(pos);
+  // pos = pos - 0.001;
+  // Serial.print("Steering position: ");
+  // Serial.println(pos);
   // steerMotor.setPosition(pos);
-  steerMotor.setVelocity(.3);
+  steerMotor.setVelocity(.25);
   delayMicroseconds(50);
   driveMotor.setVelocity(3);
+  delayMicroseconds(50);
+  Serial.print("Encoder Position: ");
+  Serial.println(steerMotor.getEncoderPosition());
   delayMicroseconds(50);
 
   // Set loop speed roughly

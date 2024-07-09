@@ -17,6 +17,9 @@ public:
   void printMessage();
   void setVelocityControlMode();
   void setPositionControlMode();
+  void getEncoderValues(float& position, float& velocity);
+  float getEncoderPosition();
+  float getEncoderVelocity();
 
 private:
   const FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16>& m_can;

@@ -88,3 +88,25 @@ void ODrive::setPositionControlMode() {
 void ODrive::setVelocityControlMode() {
   setControlMode(2, 2);
 }
+
+void ODrive::getEncoderValues(float& position, float& velocity) {
+  m_msg.id = m_canId << 5 | 0x09;
+  m_msg.len = 8;
+  m_can.read(m_msg);
+  memcpy(&position, m_msg.buf, sizeof(position));
+  memcpy(&velocity, m_msg.buf + sizeof(position), sizeof(velocity));
+}
+
+float ODrive::getEncoderVelocity() {
+  float velocity;
+  float position;
+  getEncoderValues(position, velocity);
+  return velocity;
+}
+
+float ODrive::getEncoderPosition() {
+  float velocity;
+  float position;
+  getEncoderValues(position, velocity);
+  return position;
+}
