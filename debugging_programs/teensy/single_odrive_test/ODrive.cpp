@@ -3,6 +3,7 @@
 ODrive::ODrive(const FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16>& can, const int canId)
   : m_can{ can }, m_canId{ canId } {
   m_msg.flags.extended = false;
+  m_encoderEstimateMsg.flags.extended = false;
 }
 
 void ODrive::setAbsolutePosition(float position) {
@@ -90,11 +91,11 @@ void ODrive::setVelocityControlMode() {
 }
 
 void ODrive::getEncoderValues(float& position, float& velocity) {
-  m_msg.id = m_canId << 5 | 0x09;
-  m_msg.len = 8;
-  m_can.read(m_msg);
-  memcpy(&position, m_msg.buf, sizeof(position));
-  memcpy(&velocity, m_msg.buf + sizeof(position), sizeof(velocity));
+  m_encoderEstimateMsg.id = m_canId << 5 | 0x09;
+  m_encoderEstimateMsg.len = 8;
+  m_can.read(m_encoderEstimateMsg);
+  memcpy(&position, m_encoderEstimateMsg.buf, sizeof(position));
+  memcpy(&velocity, m_encoderEstimateMsg.buf + sizeof(position), sizeof(velocity));
 }
 
 float ODrive::getEncoderVelocity() {

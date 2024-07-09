@@ -24,8 +24,8 @@ public:
 private:
   const FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16>& m_can;
   const int m_canId;
-  unsigned char m_buffer[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
   CAN_message_t m_msg;
+  CAN_message_t m_encoderEstimateMsg;
   bool m_printMessageOnWrite = false;
 
   void setAxisState(uint32_t);

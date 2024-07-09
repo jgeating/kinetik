@@ -51,6 +51,8 @@ void loop() {
   delayMicroseconds(50);
   Serial.print("Encoder Position: ");
   Serial.println(steerMotor.getEncoderPosition());
+  Serial.print("Encoder Velocity: ");
+  Serial.println(steerMotor.getEncoderVelocity());
   delayMicroseconds(50);
 
   // Set loop speed roughly
