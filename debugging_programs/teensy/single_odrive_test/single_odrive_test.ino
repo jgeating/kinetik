@@ -2,6 +2,7 @@
 #include "ODrive.h"
 // #include <math.h>
 // #include "utils.h"
+#include "SwerveTelemetry.h"
 
 // CAN related
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
@@ -17,8 +18,13 @@ float drive_tff = 0.0;
 ODrive steerMotor{ Can0, id_steer };
 ODrive driveMotor{ Can0, id_drive };
 
+SwerveTelemetry swerveTelemetry;
+
 void setup(void) {
   Serial.begin(115200);
+
+  swerveTelemetry.start();
+
   delay(400);
   pinMode(6, OUTPUT);
   digitalWrite(6, LOW); /* optional tranceiver enable pin */
@@ -42,18 +48,22 @@ void loop() {
 
   // ***** Steering *****
   // pos = pos - 0.001;
-  // Serial.print("Steering position: ");
-  // Serial.println(pos);
+  Serial.print("Steering position: ");
+  Serial.println(pos);
   // steerMotor.setPosition(pos);
   steerMotor.setVelocity(.25);
   delayMicroseconds(50);
   driveMotor.setVelocity(3);
   delayMicroseconds(50);
+  float position = driveMotor.getEncoderPosition();
+  float velocity = driveMotor.getEncoderVelocity();
   Serial.print("Encoder Position: ");
-  Serial.println(steerMotor.getEncoderPosition());
+  Serial.println(position);
   Serial.print("Encoder Velocity: ");
-  Serial.println(steerMotor.getEncoderVelocity());
+  Serial.println(velocity);
   delayMicroseconds(50);
+
+  swerveTelemetry.sendEncoderData(position, velocity);
 
   // Set loop speed roughly
   delay(5);
