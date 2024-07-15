@@ -10,10 +10,10 @@ extern byte canRx(byte cPort, long* lMsgID, bool* bExtendedFormat, byte* cData, 
 double freq = .25;        // target oscillation frequency, Hz
 double w_max = 720;     // max angular speed, deg/sec
 double theta = 90;     // half amplitude of oscillation, degrees
-double tInner = 2.5;    // Target length of inner loop controller, milliseconds
+double tInner = 2;    // Target length of inner loop controller, milliseconds
 double tOuter = 100.0;  // Target length of outer loop controller, milliseconds
 double a_max = 1800;    // Max angular acceleration for slew trajectory, deg/sec^2
-double osc_ang = 180;   // oscillation angle, degrees
+double osc_ang = 1800;   // oscillation angle, degrees
 double osc_var = 0;    // variation in oscillation angle, unitless. 0.1 = 10% variation 
 int ncycles = 5000;       // number of cycles to stop after
 
@@ -137,17 +137,18 @@ void loop()
       
       //Serial.println("Sending data");
       canTx(  0,          0x141,   false,        stmp, 8);    
-      //canTx(bus select, CAN ID, ext bool, data, length);
+  //. canTx(bus select, CAN ID, ext bool, data, length);
 
-      //if (cnt == floor(loop_len/4)){
-      //  canRx(0, &rxlMsgID, &rxbExtendedFormat, &cRxData[0], &rxcDataLen);
-      //  current_plus = map_double((uint8_t)(cRxData[2] + (cRxData[3] << 8)), 0, 2048, 0, 33);
-      //}
+      if (cnt == floor(loop_len/4)){
+       canRx(0, &rxlMsgID, &rxbExtendedFormat, &cRxData[0], &rxcDataLen);
+       current_plus = map_double((uint8_t)(cRxData[2] + (cRxData[3] << 8)), 0, 2048, 0, 33);
+      }
+      Serial.println(current_minus);
 
-      //if (cnt == floor(loop_len*3/4)){
+      if (cnt == floor(loop_len*3/4)){
         canRx(0, &rxlMsgID, &rxbExtendedFormat, &cRxData[0], &rxcDataLen);
-        current_minus = map_double((uint16_t)(cRxData[6] + (cRxData[7] << 8)), 0, 65535, 0, 360); //actually position, not current
-      //}
+        current_minus = map_double((uint16_t)(cRxData[2] + (cRxData[3] << 8)), 0, 2048, 0, 33); //actually position, not current
+      }
       Serial.println(current_minus);
       
     //END INNER LOOP *******************************************************

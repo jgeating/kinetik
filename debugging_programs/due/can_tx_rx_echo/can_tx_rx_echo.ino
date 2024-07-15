@@ -59,7 +59,7 @@ void setup() {
 }
 
 void loop() {
-  ang = 0;
+  ang = 15;
   stmp[4] = *((uint8_t *)(&ang));
   stmp[5] = *((uint8_t *)(&ang)+1);
   stmp[6] = *((uint8_t *)(&ang)+2);

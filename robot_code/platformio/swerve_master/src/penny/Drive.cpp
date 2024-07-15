@@ -80,9 +80,8 @@ void Drive::setVel(double vel, int ch, int rcLost)
       canTx(1, idd, ext, this->cTxData1, len);
     }
   }
-  else
+  else // O-Drive
   {
-
     bool eStop = !(ch > 400 && !rcLost);
 
     // erpm to rpm
