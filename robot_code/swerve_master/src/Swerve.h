@@ -14,9 +14,9 @@ struct pad_vars
   // float kp_y = 20;
   // float kp_z = 15;
 
-  float kp_x = 80;
-  float kp_y = 20;
-  float kp_z = 50;
+  float kp_x = 40;
+  float kp_y = 40;
+  float kp_z = 30;
 
   float ki_x = 0;
   float ki_y = 0;
