@@ -60,7 +60,7 @@ extern byte canInit(byte cPort, long lBaudRate);
 extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte *cData, byte cDataLen);
 extern byte canRx(byte cPort, long *lMsgID, bool *bExtendedFormat, byte *cData, byte *cDataLen);
 SwerveCAN can;
-Drive::Type types[] = {Drive::Type::VESC, Drive::Type::VESC, Drive::Type::VESC, Drive::Type::VESC};
+Drive::Type types[] = {Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE};
 
 // PWM/Receiver stuff
 PWMReceiver pwmReceiver;
@@ -340,6 +340,13 @@ void loop()
     if (pwmReceiver.getHandheld() < -100 || pwmReceiver.isBlueSwitchDown())
     {
       zeroFootPads();
+    }
+
+    if (pwmReceiver.getRedSwitch() < 400 || pwmReceiver.rcLost){  // Safety loop. This runs if motors aren't meant to be spinning 
+      Serial.println("Shutting off ODrive Motor ID 1");
+      int idd = 1 << 5 | 0x0c;
+      unsigned char stmp_temp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      canTx(1, idd, false, stmp_temp, 8);
     }
   }
   // printProfiles(profiles);
