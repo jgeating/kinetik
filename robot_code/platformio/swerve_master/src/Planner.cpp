@@ -68,7 +68,6 @@ int Planner::plan_teleop(double x_in, double y_in, double z_in, double gain_in)
   this->gain = gain_in;
   for (int i = 0; i < 3; i++)
   {
-
     // Apply deadband
     this->qd_d[i] = abs(this->input[i]) - this->dband_teleop[i];
     if (this->qd_d[i] < 0.0)
@@ -96,14 +95,12 @@ int Planner::plan_teleop(double x_in, double y_in, double z_in, double gain_in)
   // this->regularize();
   return 0;
 }
-
 enum class PadControlMode
 {
   DEACTIVATED,
   VELOCITY,
   ACCELERATION,
 };
-
 enum PadAxis
 {
   PAD_X = 0,
@@ -111,13 +108,21 @@ enum PadAxis
   PAD_Z = 2,
 };
 
+double applyDeadband(double input, double deadband) {
+  if (abs(input) < deadband) {
+    return 0;
+  }
+  return copysignl((abs(input) - deadband) / (1 - deadband), input);
+}
+
 int Planner::plan_pads(double x_in, double y_in, double z_in, double gain_in)
 {
-  padx_pid->setInput(x_in);
+  
+  padx_pid->setInput(applyDeadband(x_in, .1));
   pady_pid->setInput(y_in);
   padz_pid->setInput(z_in);
 
-  PadControlMode control_mode[] = {PadControlMode::DEACTIVATED, PadControlMode::DEACTIVATED, PadControlMode::VELOCITY}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
+  PadControlMode control_mode[] = {PadControlMode::ACCELERATION, PadControlMode::DEACTIVATED, PadControlMode::DEACTIVATED}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
 
   this->setZeros(input[0], input[1], input[2], gain_in);
   for (int i = 0; i < 3; i++)
@@ -150,7 +155,6 @@ int Planner::plan_pads(double x_in, double y_in, double z_in, double gain_in)
   // this->regularize();
   return 1;
 }
-
 int Planner::plan_world(double x_in, double y_in, double z_in, double gain_in, double alpha)
 {                                                // For driving the robot wrt world frame. Takes in IMU orientation and transforms inputs to robot frame
   double beta = atan2(y_in, x_in);               // angle of desired velocity vector wrt world frame
@@ -158,7 +162,6 @@ int Planner::plan_world(double x_in, double y_in, double z_in, double gain_in, d
   double gamma = alpha + beta;                   // angle of desired velocity vector wrt robot frame
   return this->plan_teleop(qd_n * cos(gamma), qd_n * sin(gamma), z_in, gain_in);
 }
-
 int Planner::steerTo(double ang, int ind)
 {
   this->s_error[ind] = ang - this->s_q[ind]; // steer error term
@@ -204,20 +207,19 @@ int Planner::steerTo(double ang, int ind)
   this->s_qd[ind] = lim(this->s_qd[ind], -1 * this->s_qd_max, this->s_qd_max);
 
   double delYaw = this->s_qd[ind] * this->dt;
-  if (abs(delYaw) > abs(this->s_error[ind])){
+  if (abs(delYaw) > abs(this->s_error[ind]))
+  {
     delYaw = this->s_error[ind];
   }
   this->s_q[ind] = this->s_q[ind] + delYaw;
   this->s_mot_q[ind] = this->s_mot_q[ind] - delYaw * this->s_ratio; // Minus sign added 1/6/2024 because steering was reversed. definitely a better way
   return 0;
 }
-
 int Planner::driveTo(double vel, int ind)
 {
   this->d_qd[ind] = vel * this->s_dir[ind];
   return 0;
 }
-
 int Planner::calcFromVels() // Robot level slew limits etc. would be applied here
 {
   // double qd_d_mag = sqrt(pow(this->qd_d[0], 2) + pow(this->qd_d[1], 2));
@@ -265,7 +267,6 @@ int Planner::calcFromVels() // Robot level slew limits etc. would be applied her
   }
   return 1;
 }
-
 int Planner::calcFromAccels()
 { // use qdd_d as control input
   double del_qd = 0;
@@ -277,7 +278,6 @@ int Planner::calcFromAccels()
   }
   return 1;
 }
-
 int Planner::regularize()
 { // regularizes velocity based on current qd
   double qd_mag = sqrt(pow(qd[0], 2) + pow(qd[1], 2));
@@ -297,7 +297,6 @@ int Planner::regularize()
   this->qd[1] = V_R_norm[1] * v_d_dot;
   return 1;
 }
-
 double min2(double a, double b)
 {
   return a < b ? a : b;
@@ -341,15 +340,15 @@ void Planner::eStop()
 }
 double Planner::getTargetVX()
 {
-  return this->qd[0];
+  return this->qd_d[0];
 }
 double Planner::getTargetVY()
 {
-  return this->qd[1];
+  return this->qd_d[1];
 }
 double Planner::getTargetVZ()
 {
-  return this->qd[2];
+  return this->qd_d[2];
 }
 double Planner::get_vv()
 {

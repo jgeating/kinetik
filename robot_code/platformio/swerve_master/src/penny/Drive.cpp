@@ -100,6 +100,9 @@ void Drive::setVel(double vel, int ch, int rcLost)
     if (ch > 400 && !rcLost)
     { // Only send motor if safety channel is in the correct range, and rc signal is present
       canTx(1, idd, false, odrive_data, sizeof(odrive_data));
+    } else {  // Actively command zero velocity for ODrives. Otherwise, they will latch velocity. Might find a way to configure auto timeout in the future
+      byte zeroVel[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      canTx(1, idd, false, zeroVel, sizeof(zeroVel));
     }
   }
 }

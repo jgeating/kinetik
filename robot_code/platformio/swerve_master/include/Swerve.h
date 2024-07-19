@@ -16,10 +16,10 @@ struct pad_vars
   float qdd_max[3] = {50, 50, 50};  // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
 
   // Control loop parameters
-  float kp[3] = {-60, -30, -40};      // Position term for weight control loop. {x, y, z}. Was 80, 20, 50
+  float kp[3] = {-15, -30, -40};      // Position term for weight control loop. {x, y, z}. Was 80, 20, 50
   float ki[3] = {0,   0,  0};      // Integral term
-  float kd[3] = {4, 4,  .1};      // Derivative term, should always be negative
-  float lag[3] = {3,  3,  4};      // No. of samples for lag filter
+  float kd[3] = {0, 4,  .1};      // Derivative term, should always be negative
+  float lag[3] = {30,  3,  4};      // No. of samples for lag filter
 };
 
 struct vest_vars

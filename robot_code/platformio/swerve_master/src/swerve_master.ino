@@ -16,6 +16,7 @@
 #include "PID.h"                    // For PID controllers
 #include "shared/LowPassFilter.cpp" // Low pass filter class
 #include "penny/Lights.h"
+#include "SwerveTelemetry.h"
 
 // Definitions
 #pragma region
@@ -47,13 +48,13 @@ LoopTiming loopTiming;
 Profiles profiles;
 Modes modes; // Handles different driving and control modes
 
-// Instantiate classes?
+// Instantiate classes
 Planner *planner; // for planning robot level motion
 Pads *pads;       // For driving with force pads
-PID *padx_pid;
-PID *pady_pid;
-PID *padz_pid;
-Lights *lights;
+PID *padx_pid;    // PID controller for weight (pad) steering in X (sideways) axis
+PID *pady_pid;    // PID controller for weight (pad) steering in Y (forwards) axis
+PID *padz_pid;    // PID controller for weight (pad) steering in Z (rotation) axis
+Lights *lights;   // Controls LED strips for signals/entertainment 
 
 // CAN Stuff for drive motors
 extern byte canInit(byte cPort, long lBaudRate);
@@ -78,6 +79,8 @@ Watchdog watchdog;
 LowPassFilter filter(10); // create a low-pass filter with 10 readings
 
 #pragma endregion
+
+SwerveTelemetry swerveTelemetry;
 
 void setup()
 {
@@ -143,6 +146,8 @@ void setup()
 
   planner = new Planner(loopTiming.tInner, traj, padVars, kin);
 
+  swerveTelemetry.start();
+
   Serial.println("Startup Complete.");
 }
 
@@ -169,11 +174,18 @@ void padRiding()
   bool hand_zeroing = hand_remote_val <= -0.2;
   bool hand_active_driving = hand_remote_val > 0.2;
   pads->calcVector();
-  planner->plan_pads(pads->getX(), pads->getY(), pads->getZ(), hand_remote_val);
+
+  double x = pads->getX();
+  double y = pads->getY();
+  double z = pads->getZ();
+
+  planner->plan_pads(x, y, z, hand_remote_val);
   if (pwmReceiver.isBlueSwitchDown() || modes.zeroing || hand_zeroing || hand_remote_estopped)
   {
     planner->eStop();
   }
+
+  swerveTelemetry.sendPadData(x, y, z);
 }
 
 void updateLoopTiming()
@@ -291,7 +303,7 @@ void loop()
     {                                                                                           // Send commands to all motors
       steer[i]->motTo(planner->getMotAngle(i), pwmReceiver.getRedSwitch(), pwmReceiver.rcLost); // Red, (-) is up
       delayMicroseconds(can.steerCanDelay);                                                     // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
-      drive[i]->setVel(planner->getDriveWheelSpeed(i), pwmReceiver.getRedSwitch(), pwmReceiver.rcLost);
+      drive[i]->setVel(-planner->getDriveWheelSpeed(i), pwmReceiver.getRedSwitch(), pwmReceiver.rcLost);
       delayMicroseconds(can.driveCanDelay);
     }
     serialPrints();
@@ -343,7 +355,7 @@ void loop()
     }
 
     if (pwmReceiver.getRedSwitch() < 400 || pwmReceiver.rcLost){  // Safety loop. This runs if motors aren't meant to be spinning 
-      Serial.println("Shutting off ODrive Motor ID 1");
+      // Serial.println("Shutting off ODrive Motor ID 1");
       int idd = 1 << 5 | 0x0c;
       unsigned char stmp_temp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       canTx(1, idd, false, stmp_temp, 8);
