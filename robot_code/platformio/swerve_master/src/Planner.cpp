@@ -33,17 +33,17 @@ Planner::Planner(double tInner, SwerveTrajectory traj, pad_vars padVars, SwerveK
   padx_pid->setSetpoint(0); // setpoint = 0 means try to put human center of pressure at middle of footpad
   pady_pid->setSetpoint(0);
   padz_pid->setSetpoint(0);
-  this->p_qd_max[0] = padVars.qd_max[0]; // Max velocity allowed during pad riding
-  this->p_qd_max[1] = padVars.qd_max[1];
-  this->p_qd_max[2] = padVars.qd_max[2];
-  this->p_qdd_max[0] = padVars.qdd_max[0]; // Max acceleration allowed during pad riding
-  this->p_qdd_max[1] = padVars.qdd_max[1];
-  this->p_qdd_max[2] = padVars.qdd_max[2];
+  this->maxPadVelocity[0] = padVars.qd_max[0]; // Max velocity allowed during pad riding
+  this->maxPadVelocity[1] = padVars.qd_max[1];
+  this->maxPadVelocity[2] = padVars.qd_max[2];
+  this->maxPadAcceleration[0] = padVars.qdd_max[0]; // Max acceleration allowed during pad riding
+  this->maxPadAcceleration[1] = padVars.qdd_max[1];
+  this->maxPadAcceleration[2] = padVars.qdd_max[2];
 
   // Steering variables
   this->s_ratio = kin.rmd_ratio * kin.steering_pulley_ratio;
-  this->s_qd_max = kin.vRobot * kin.kv_steer * this->rpm2rad_sec / this->s_ratio;
-  this->s_qdd_max = this->s_qd_max * 10; // For now, hardcode to accelerate to full speed in 1/const seconds
+  this->maxSteeringVelocity = kin.vRobot * kin.kv_steer * this->rpm2rad_sec / this->s_ratio;
+  this->s_qdd_max = this->maxSteeringVelocity * 10; // For now, hardcode to accelerate to full speed in 1/const seconds
   this->s_error_max = traj.s_error_max;
   this->min_tracking_wheels = traj.min_tracking_wheels;
 
@@ -138,11 +138,11 @@ int Planner::plan_pads(double x_in, double y_in, double z_in, double gain_in)
     switch (control_mode[i])
     {
     case PadControlMode::VELOCITY:
-      this->qd_d[i] = constrain(pid_output, -this->p_qd_max[i], this->p_qd_max[i]);
+      this->qd_d[i] = constrain(pid_output, -this->maxPadVelocity[i], this->maxPadVelocity[i]);
       break;
     case PadControlMode::ACCELERATION:
-      this->qdd_d[i] = constrain(pid_output, -this->p_qdd_max[i], this->p_qdd_max[i]);
-      this->qd_d[i] = constrain(this->qd_d[i] - this->qdd_d[i] * this->dt, -this->p_qd_max[i], this->p_qd_max[i]);
+      this->qdd_d[i] = constrain(pid_output, -this->maxPadAcceleration[i], this->maxPadAcceleration[i]);
+      this->qd_d[i] = constrain(this->qd_d[i] - this->qdd_d[i] * this->dt, -this->maxPadVelocity[i], this->maxPadVelocity[i]);
       break;
     }
   }
@@ -161,7 +161,7 @@ int Planner::plan_world(double x_in, double y_in, double z_in, double gain_in, d
 
 int Planner::steerTo(double ang, int ind)
 {
-  this->s_error[ind] = ang - this->s_q[ind]; // steer error term
+  this->s_error[ind] = ang - this->steeringAngle[ind]; // steer error term
   if (abs(this->s_error[ind]) > PI)
   { // Unwrap
     while (abs(this->s_error[ind]) > PI)
@@ -174,47 +174,47 @@ int Planner::steerTo(double ang, int ind)
   if (abs(this->s_error[ind]) > PI / 2.0)
   {
     this->s_error[ind] = this->s_error[ind] + (sign(this->s_error[ind]) * -PI);
-    this->s_dir[ind] = -1.0;
+    this->steeringDirection[ind] = -1.0;
   }
   else
   {
-    this->s_dir[ind] = 1.0;
+    this->steeringDirection[ind] = 1.0;
   }
 
-  double tStop = abs(this->s_qd[ind]) / this->s_qdd_max;                               // minimum time until motor can stop
-  double minStop = abs(this->s_qd[ind]) * tStop + this->s_qdd_max * tStop * tStop / 2; // minimum distance in which motor can stop
+  double tStop = abs(this->steeringVelocity[ind]) / this->s_qdd_max;                               // minimum time until motor can stop
+  double minStop = abs(this->steeringVelocity[ind]) * tStop + this->s_qdd_max * tStop * tStop / 2; // minimum distance in which motor can stop
   // double acc = constrain(abs(delPos)/rampDist, -1.0, 1.0) * aMax; // To prevent instabilities and numerical error buildup near zero
   // if (sign(delPos*v[mot]) == -1) v[mot] = 0;      // velocity should never be pushing away from setpoint, even if it breaks max accel limit
   // double acc = ((abs(this->s_error[ind]) > minStop) - 0.5) * 2.0;  // takes a bool for acceleration direction and makes it 1 or -1
   if (abs(this->s_error[ind]) > minStop)
   {
-    this->s_qd[ind] = this->s_qd[ind] + sign(this->s_error[ind]) * this->s_qdd_max * this->dt; // Speed up or coast (coasting done with constrain)
+    this->steeringVelocity[ind] = this->steeringVelocity[ind] + sign(this->s_error[ind]) * this->s_qdd_max * this->dt; // Speed up or coast (coasting done with constrain)
   }
   else
   {
-    if (abs(this->s_q[ind]) < this->s_qd_max * this->dt)
+    if (abs(this->steeringAngle[ind]) < this->maxSteeringVelocity * this->dt)
     {
-      this->s_qd[ind] = 0; // If almost at zero, just set to zero. This prevents oscillating about zero with qd_max vel
+      this->steeringVelocity[ind] = 0; // If almost at zero, just set to zero. This prevents oscillating about zero with qd_max vel
     }
     else
     {
-      this->s_qd[ind] = this->s_qd[ind] - sign(this->s_qd[ind]) * this->s_qdd_max * this->dt; // Slow down
+      this->steeringVelocity[ind] = this->steeringVelocity[ind] - sign(this->steeringVelocity[ind]) * this->s_qdd_max * this->dt; // Slow down
     }
   }
-  this->s_qd[ind] = lim(this->s_qd[ind], -1 * this->s_qd_max, this->s_qd_max);
+  this->steeringVelocity[ind] = lim(this->steeringVelocity[ind], -1 * this->maxSteeringVelocity, this->maxSteeringVelocity);
 
-  double delYaw = this->s_qd[ind] * this->dt;
+  double delYaw = this->steeringVelocity[ind] * this->dt;
   if (abs(delYaw) > abs(this->s_error[ind])){
     delYaw = this->s_error[ind];
   }
-  this->s_q[ind] = this->s_q[ind] + delYaw;
-  this->s_mot_q[ind] = this->s_mot_q[ind] - delYaw * this->s_ratio; // Minus sign added 1/6/2024 because steering was reversed. definitely a better way
+  this->steeringAngle[ind] = this->steeringAngle[ind] + delYaw;
+  this->steeringPosition[ind] = this->steeringPosition[ind] - delYaw * this->s_ratio; // Minus sign added 1/6/2024 because steering was reversed. definitely a better way
   return 0;
 }
 
 int Planner::driveTo(double vel, int ind)
 {
-  this->d_qd[ind] = vel * this->s_dir[ind];
+  this->driveVelocity[ind] = vel * this->steeringDirection[ind];
   return 0;
 }
 
@@ -331,7 +331,7 @@ void Planner::eStop()
 {
   for (int i = 0; i < 4; i++)
   {
-    this->d_qd[i] = 0;
+    this->driveVelocity[i] = 0;
   }
   for (int i = 0; i < 3; i++)
   {
@@ -351,33 +351,25 @@ double Planner::getTargetVZ()
 {
   return this->qd[2];
 }
-double Planner::get_vv()
-{
-  return this->vv;
-}
-double Planner::get_vvd()
-{
-  return this->vvd;
-}
 void Planner::setSteerAngle(double ang, int ind)
 {
-  this->s_q[ind] = ang;
+  this->steeringAngle[ind] = ang;
 }
 void Planner::setMotAngle(double angle, int ind)
 {
-  this->s_mot_q[ind] = angle;
+  this->steeringPosition[ind] = angle;
 }
 double Planner::getSteerAngle(int ind)
 {
-  return this->s_q[ind];
+  return this->steeringAngle[ind];
 }
 double Planner::getMotAngle(int ind)
 {
-  return this->s_mot_q[ind];
+  return this->steeringPosition[ind];
 }
 double Planner::getDriveWheelSpeed(int ind)
 {
-  return this->d_qd[ind];
+  return this->driveVelocity[ind];
 }
 double Planner::getTemp()
 {

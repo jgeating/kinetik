@@ -45,7 +45,6 @@ void setup(void) {
 }
 
 void loop() {
-
   // ***** Steering *****
   // pos = pos - 0.001;
   Serial.print("Steering position: ");
@@ -67,4 +66,6 @@ void loop() {
 
   // Set loop speed roughly
   delay(5);
+
+  micros();
 }
