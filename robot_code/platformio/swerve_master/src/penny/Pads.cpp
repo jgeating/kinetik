@@ -59,7 +59,7 @@ void Pads::getForces() {
   for (int i = 0; i < numForceSensors; i++){
     this->forces[i] -= fzeros[i];
   }
-  this->forces[3] = this->forces[2];  // 7/21/2024, bad sensor. Temporarily overriding to zero until spare arrives
+  // this->forces[3] = this->forces[2];  // 7/21/2024, bad sensor. Temporarily overriding to zero until spare arrives
   // this->forces[2] = this->forces[2] * 2;  // Also doubling index 2 to quasi-compensate (it's redundant)
 }
 
@@ -67,9 +67,9 @@ void Pads::getRawForces() {
   this->totalweight = 0;
   for (int i = 0; i < numForceSensors; i++){
     this->forces[i] = this->intToN*((int)analogRead(this->forcepins[i])-this->analogZeros[i]);
-    if (i == 3){ // 7/21/2024, bad sensor. Temporarily overriding to zero until spare arrives
-      this->forces[3] = this->forces[2];
-    }
+    // if (i == 3){ // 7/21/2024, bad sensor. Temporarily overriding to zero until spare arrives
+    //   this->forces[3] = this->forces[2];
+    // }
     // this->forces[i] = analogRead(this->forcepins[i]);
     //load cell: 1mV/V, amplifier: 495x
     this->totalweight += this->forces[i];

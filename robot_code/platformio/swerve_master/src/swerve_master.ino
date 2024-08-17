@@ -28,7 +28,7 @@ double led_val = 0.0;
 #define DEAD_ZONE 0.1
 #define pi 3.14159265358979
 #define TELEMETRY_REPORT_PERIOD 500000
-#define MCU "T4_1"  // Either "T4_1", or "DUE" 
+#define MCU "DUE"  // Either "T4_1", or "DUE" 
 
 // General stuff, controls
 char buff[100] = ""; // For various sprintf print outs
@@ -250,13 +250,14 @@ void serialPrints()
     pads->calcVector();
     // Serial.println(pads->getForce(3));
     // Serial.println(pads->getY());
-    Serial.println(planner->getTargetVY());
+    // Serial.println(planner->getTargetVY());
     // Serial.println(planner->getDriveWheelSpeed(0));
     // for (int i = 0; i < 8; i++){
-    //   Serial.print(pads->getForce(i));
-    //   Serial.print(", \t");
+      // Serial.print(pads->getForce(i));
+      Serial.print(pads->getForce(3));
+      // Serial.print(", \t");
     // }
-    // Serial.println();
+    Serial.println();
   }
 
   if (modes.mode == Mode::PADS)
