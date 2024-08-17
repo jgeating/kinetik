@@ -16,8 +16,6 @@ Steer::Steer(double vMax, double aMax, double yRatio, double tInner, int len, in
   this->len = len;
   this->mot = mot;
   this->homing = 0;
-
-  motors::steer[this->mot].enableWithClosedLoop();
 }
 
 // This function traverses to a steer position, while abiding by acceleration and velocity limits

@@ -7,6 +7,7 @@
 #include "shared/Channel.h" // for RC PWM inputs
 #include <math.h>
 #include "ODrive.h"
+#include "RMD_M6.h"
 #include <FlexCAN_T4.h>
 
 #define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
@@ -166,8 +167,8 @@ namespace motors
 {
   static FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
   // front right, back right, back left, front left
-  static ODrive steer[] = { ODrive{Can0, 0}, ODrive{Can0, 2}, ODrive{Can0, 4}, ODrive{Can0, 8} };
-  static ODrive drive[] = { ODrive{Can0, 1}, ODrive{Can0, 3}, ODrive{Can0, 5}, ODrive{Can0, 7} };
+  static RMD_M6 steer[] = { RMD_M6{Can0, 0}, RMD_M6{Can0, 1}, RMD_M6{Can0, 2}, RMD_M6{Can0, 3} };
+  static ODrive drive[] = { ODrive{Can0, 0}, ODrive{Can0, 1}, ODrive{Can0, 2}, ODrive{Can0, 3} };
 }
 
 void printWatchdogError(Watchdog &watchdog);
