@@ -61,7 +61,7 @@ void loop() {
     CAN_message_t msg;
     msg.id = random(0x1,0x7FE);
     for ( uint8_t i = 0; i < 8; i++ ) msg.buf[i] = i + 1;
-    // Can0.write(msg);
+    Can0.write(msg);
     timeout = millis();
   }
 
