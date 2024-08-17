@@ -3,8 +3,7 @@
 #include <math.h>
 #include "shared/utils.h"
 #include "Arduino.h"
-
-extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte *cData, byte cDataLen);
+#include "Swerve.h"
 
 Drive::Drive(double vMax, double aMax, double dRatio, double tInner, int len, int mot, Drive::Type type)
 {
@@ -27,11 +26,8 @@ Drive::Drive(double vMax, double aMax, double dRatio, double tInner, int len, in
     MaxDelRPM *= 1.0 / (this->odriveRatio);
     this->vMax *= 10 * this->odriveRatio;
 
-    int idd = this->mot << 5 | 0x07; // idd is the id of the CAN packet
-    bool ext = false;
-    byte odrive_data[4] = {0x08, 0x00, 0x00, 0x00};
+    motors::drive[this->mot].enableWithClosedLoop();
 
-    canTx(1, idd, ext, odrive_data, sizeof(odrive_data));
     delay(1000);
   }
 }
@@ -66,47 +62,18 @@ void Drive::slewVel(double vel, int ch, int rcLost)
 void Drive::setVel(double vel, int ch, int rcLost)
 { // vel is in erpm
   // vel = -vel;   // added 9/2/2023 because robot direction was reversed
+ 
+  bool eStop = !(ch > 400 && !rcLost);
 
-  // used in Drive()
-  bool ext = true;
-  if (this->type == Drive::Type::VESC)
-  {
-    for (int m = 0; m < len; m++)
-    {
-      this->cTxData1[len - m - 1] = (int)(vel * dRatio) >> 8 * m;
-    }
-    int idd = this->mot | CAN_PACKET_SET_RPM << 8;
-    if (ch > 400 && !rcLost)
-    { // Only send motor if safety channel is in the correct range, and rc signal is present
-      canTx(1, idd, ext, this->cTxData1, len);
-      // canTx(0, idd, ext, this->cTxData1, len);
+  // erpm to rpm
+  float velocity = eStop ? 0 : vel * this->odriveRatio;
+  float torqueFF = 0.0;
 
-    }
-  }
-  else // O-Drive
-  {
-    bool eStop = !(ch > 400 && !rcLost);
-
-    // erpm to rpm
-    float velocity = eStop ? 0 : vel * this->odriveRatio;
-    float torqueFF = 0.0;
-
-    byte odrive_data[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-    memcpy(odrive_data, &velocity, sizeof(velocity));
-    memcpy(odrive_data + sizeof(velocity), &torqueFF, sizeof(torqueFF));
-
-    int idd = this->mot << 5 | 0x0d;
-
-    // Serial.println("vel:");
-    // Serial.println(velocity);
-    if (ch > 400 && !rcLost)
-    { // Only send motor if safety channel is in the correct range, and rc signal is present
-      canTx(1, idd, false, odrive_data, sizeof(odrive_data));
-    } else {  // Actively command zero velocity for ODrives. Otherwise, they will latch velocity. Might find a way to configure auto timeout in the future
-      byte zeroVel[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      canTx(1, idd, false, zeroVel, sizeof(zeroVel));
-    }
+  if (ch > 400 && !rcLost)
+  { // Only send motor if safety channel is in the correct range, and rc signal is present
+    motors::drive[this->mot].setVelocity(velocity);
+  } else {  // Actively command zero velocity for ODrives. Otherwise, they will latch velocity. Might find a way to configure auto timeout in the future
+    motors::drive[this->mot].setVelocity(0);
   }
 }
 

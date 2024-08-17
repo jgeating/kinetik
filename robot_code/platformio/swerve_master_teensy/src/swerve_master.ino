@@ -16,8 +16,6 @@
 #include "shared/LowPassFilter.cpp" // Low pass filter class
 #include "penny/Lights.h"
 #include "SwerveTelemetry.h"
-#include "DueCANLayer.h"
-
 
 // Definitions
 #pragma region
@@ -29,7 +27,7 @@ double led_val = 0.0;
 #define DEAD_ZONE 0.1
 #define pi 3.14159265358979
 #define TELEMETRY_REPORT_PERIOD 500000
-#define MCU "DUE"  // Either "T4_1", or "DUE" 
+#define MCU "DUE" // Either "T4_1", or "DUE"
 
 // General stuff, controls
 char buff[100] = ""; // For various sprintf print outs
@@ -56,7 +54,7 @@ Pads *pads;       // For driving with force pads
 PID *padx_pid;    // PID controller for weight (pad) steering in X (sideways) axis
 PID *pady_pid;    // PID controller for weight (pad) steering in Y (forwards) axis
 PID *padz_pid;    // PID controller for weight (pad) steering in Z (rotation) axis
-Lights *lights;   // Controls LED strips for signals/entertainment 
+Lights *lights;   // Controls LED strips for signals/entertainment
 
 SwerveCAN can;
 Drive::Type types[] = {Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE};
@@ -80,29 +78,15 @@ LowPassFilter filter(10); // create a low-pass filter with 10 readings
 
 SwerveTelemetry swerveTelemetry;
 
-
 void setup()
 {
 
-
   analogReadResolution(12);
   // Serial and CAN setup
-  Serial.begin(460800);  // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
+  Serial.begin(460800); // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
 
-
-  if (MCU == "DUE"){  // CAN setup for Due 
-    Serial.println("Initializing CAN and pinmodes...");
-    if (canInit(0, CAN_BPS_1000K) == CAN_OK)
-      Serial.print("CAN0: Initialized Successfully.\n\r");
-    else
-      Serial.print("CAN0: Initialization Failed.\n\r");
-    if (canInit(1, CAN_BPS_1000K) == CAN_OK)
-      Serial.print("CAN1: Initialized Successfully.\n\r");
-    else
-      Serial.print("CAN1: Initialization Failed.\n\r");
-  } else if (MCU == "T4_1") { // CAN setup for Teensy 4.1
-    
-  }
+  motors::Can0.begin();
+  motors::Can0.setBaudRate(1000000);
 
   for (int i = 0; i < 4; i++)
   {
@@ -154,7 +138,7 @@ void setup()
 
   planner = new Planner(loopTiming.tInner, traj, padVars, kin);
 
-  pads->calibrate();  // Zero footpads, assuming zero weight on them 
+  pads->calibrate(); // Zero footpads, assuming zero weight on them
 
   // swerveTelemetry.start();
 
@@ -253,9 +237,9 @@ void serialPrints()
     // Serial.println(planner->getTargetVY());
     // Serial.println(planner->getDriveWheelSpeed(0));
     // for (int i = 0; i < 8; i++){
-      // Serial.print(pads->getForce(i));
-      Serial.print(pads->getForce(3));
-      // Serial.print(", \t");
+    // Serial.print(pads->getForce(i));
+    Serial.print(pads->getForce(3));
+    // Serial.print(", \t");
     // }
     Serial.println();
   }
@@ -376,11 +360,13 @@ void loop()
       zeroFootPads();
     }
 
-    if (pwmReceiver.getRedSwitch() < 400 || pwmReceiver.rcLost){  // Safety loop. This runs if motors aren't meant to be spinning 
+    if (pwmReceiver.getRedSwitch() < 400 || pwmReceiver.rcLost)
+    { // Safety loop. This runs if motors aren't meant to be spinning
       // Serial.println("Shutting off ODrive Motor ID 1");
-      int idd = 1 << 5 | 0x0c;
-      unsigned char stmp_temp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      canTx(1, idd, false, stmp_temp, 8);
+      for (int i = 0; i < 4; i++)
+      {
+        motors::drive[i].setVelocity(0);
+      }
     }
   }
   // printProfiles(profiles);

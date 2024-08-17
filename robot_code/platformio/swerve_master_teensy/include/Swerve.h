@@ -165,7 +165,7 @@ struct Watchdog
 namespace motors
 {
   static FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
-  // top left, top right, back left, back right
+  // front right, back right, back left, front left
   static ODrive steer[] = { ODrive{Can0, 0}, ODrive{Can0, 2}, ODrive{Can0, 4}, ODrive{Can0, 8} };
   static ODrive drive[] = { ODrive{Can0, 1}, ODrive{Can0, 3}, ODrive{Can0, 5}, ODrive{Can0, 7} };
 }

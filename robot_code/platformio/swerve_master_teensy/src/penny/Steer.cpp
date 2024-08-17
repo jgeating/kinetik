@@ -3,9 +3,7 @@
 #include <math.h>
 #include "shared/utils.h"
 #include <wiring.h>
-
-extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte* cData, byte cDataLen);
-extern byte canRx(byte cPort, long* lMsgID, bool* bExtendedFormat, byte* cData, byte* cDataLen);
+#include "Swerve.h"
 
 Steer::Steer(double vMax, double aMax, double yRatio, double tInner, int len, int mot) {
   this->v = 0;
@@ -18,6 +16,8 @@ Steer::Steer(double vMax, double aMax, double yRatio, double tInner, int len, in
   this->len = len;
   this->mot = mot;
   this->homing = 0;
+
+  motors::steer[this->mot].enableWithClosedLoop();
 }
 
 // This function traverses to a steer position, while abiding by acceleration and velocity limits
@@ -62,24 +62,14 @@ void Steer::motTo(double ang, int ch, int rcLost){
   ang = ang * 180.0 / PI; // rmd operates with degree as unit
   //this->mPos = ang;
   // used in yawTo(), calMotor()
-  bool ext = false;
   
   // for (int m = 0; m < this->len; m++) {
   //   this->cTxData0[this->len - m - 1] = (int)(ang * 1000000.0) >> 8*m;
   // }
   int32_t ang_int = (int32_t)(ang * 100);  // RMD-X6 takes angle over CAN as int32 in hundredths of degrees
-  //ang = 0;
-  this->cTxData0[4] = *((uint8_t *)(&ang_int));
-  this->cTxData0[5] = *((uint8_t *)(&ang_int)+1);
-  this->cTxData0[6] = *((uint8_t *)(&ang_int)+2);
-  this->cTxData0[7] = *((uint8_t *)(&ang_int)+3);
 
-  //int idy = this->mot | CAN_PACKET_SET_POS << 8; 
-  int idy = 0x141 + this->mot;
   if (ch > -200 && !rcLost){ // Only send motor if ch [estop] is turned to center or farther, and rc signal is present
-    canTx(    0,    idy,      ext, this->cTxData0,      8);
-    // canTx(    1,    idy,      ext, this->cTxData0,      8);
-    //canTx(bus, CAN ID, ext bool,           data, length);
+    motors::steer[this->mot].setPosition(ang_int);
   }
 }
 
