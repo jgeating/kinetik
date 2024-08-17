@@ -1,6 +1,11 @@
 {
     "cmake.configureOnOpen": true,
     "files.associations": {
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "arduino.h": "c",
+        "flexcan_t4.h": "c",
+        "imxrt_flexcan.h": "c",
+        "circular_buffer.h": "c",
+        "cstddef": "cpp"
     }
 }

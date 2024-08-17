@@ -1,4 +1,3 @@
-#include "DueCANLayer.h"      // CAN library for CAN shield
 #include <math.h>             // Math functions
 #include "Kinematics.h"       // wheel level kinematics/trigonometry
 #include "Planner.h"          // robot level planning
@@ -17,6 +16,8 @@
 #include "shared/LowPassFilter.cpp" // Low pass filter class
 #include "penny/Lights.h"
 #include "SwerveTelemetry.h"
+#include "DueCANLayer.h"
+
 
 // Definitions
 #pragma region
@@ -57,11 +58,6 @@ PID *pady_pid;    // PID controller for weight (pad) steering in Y (forwards) ax
 PID *padz_pid;    // PID controller for weight (pad) steering in Z (rotation) axis
 Lights *lights;   // Controls LED strips for signals/entertainment 
 
-// CAN Stuff
-extern byte canInit(byte cPort, long lBaudRate);
-extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte *cData, byte cDataLen);
-extern byte canRx(byte cPort, long *lMsgID, bool *bExtendedFormat, byte *cData, byte *cDataLen);
-
 SwerveCAN can;
 Drive::Type types[] = {Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE};
 
@@ -84,11 +80,15 @@ LowPassFilter filter(10); // create a low-pass filter with 10 readings
 
 SwerveTelemetry swerveTelemetry;
 
+
 void setup()
 {
+
+
   analogReadResolution(12);
   // Serial and CAN setup
   Serial.begin(460800);  // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
+
 
   if (MCU == "DUE"){  // CAN setup for Due 
     Serial.println("Initializing CAN and pinmodes...");
@@ -466,6 +466,7 @@ void telemetry()
 
   // Serial.println("\n");
 }
+
 // 2.4 GHz RECEIVER  FUNCTIONS
 void calcCh1()
 {

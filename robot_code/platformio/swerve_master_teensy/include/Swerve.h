@@ -6,20 +6,22 @@
 #include "shared/utils.h"   // Basic utils like more powerful serial
 #include "shared/Channel.h" // for RC PWM inputs
 #include <math.h>
+#include "ODrive.h"
+#include <FlexCAN_T4.h>
 
 #define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
 struct pad_vars
 {
-  // Kinematics parameters 
-  float qd_max[3] = {100, 100, 100};   // Max speeds in weight control mode {m/s, m/s, rad/s}
-  float qdd_max[3] = {50, 50, 50};  // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
- 
+  // Kinematics parameters
+  float qd_max[3] = {100, 100, 100}; // Max speeds in weight control mode {m/s, m/s, rad/s}
+  float qdd_max[3] = {50, 50, 50};   // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
+
   // Control loop parameters
-  float kp[3] = {-160, -80, -100};      // Position term for weight control loop. {x, y, z}. Was -80, -40, -30
-  float ki[3] = {0,   0,  0};      // Integral term
-  float kd[3] = {10, 10,  .1};      // Derivative term, should always be negative
-  float lag[3] = {3,  3,  4};      // No. of samples for lag filter
+  float kp[3] = {-160, -80, -100}; // Position term for weight control loop. {x, y, z}. Was -80, -40, -30
+  float ki[3] = {0, 0, 0};         // Integral term
+  float kd[3] = {10, 10, .1};      // Derivative term, should always be negative
+  float lag[3] = {3, 3, 4};        // No. of samples for lag filter
 };
 
 struct vest_vars
@@ -67,7 +69,7 @@ struct SwerveTrajectory
   double s_error_max = 10 * PI / 180; // Max tracking error under which wheel won't start spinning, rad
   int min_tracking_wheels = 3;        // Min number of wheels that must be under error before driving
 
-  double qd_r[3] = {3, 0, 0};         // regularization vector
+  double qd_r[3] = {3, 0, 0}; // regularization vector
 };
 
 struct SwerveKinematics
@@ -133,11 +135,11 @@ enum class Mode
 
 struct Modes
 {
-  char buff[100];          // String buffer for Serial
-  Mode mode = Mode::TELEOP;    // 0 = RC mode (teleop), 1 = weight control mode
-  bool eStop = false;      // e-stop variable for safety
-  bool debugRx = false;    // whether or not to debug receiver
-  bool debugTiming = true; // whether or not to debug timing, look at loop lengths, etc.
+  char buff[100];           // String buffer for Serial
+  Mode mode = Mode::TELEOP; // 0 = RC mode (teleop), 1 = weight control mode
+  bool eStop = false;       // e-stop variable for safety
+  bool debugRx = false;     // whether or not to debug receiver
+  bool debugTiming = true;  // whether or not to debug timing, look at loop lengths, etc.
   bool debugRiding = false;
   bool zeroing = false; // whether or not system is zeroing
 };
@@ -159,6 +161,14 @@ struct Watchdog
   unsigned long prevReportTime = 0;
   unsigned long prevLoopTime = 0;
 };
+
+namespace motors
+{
+  static FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
+  // top left, top right, back left, back right
+  static ODrive steer[] = { ODrive{Can0, 0}, ODrive{Can0, 2}, ODrive{Can0, 4}, ODrive{Can0, 8} };
+  static ODrive drive[] = { ODrive{Can0, 1}, ODrive{Can0, 3}, ODrive{Can0, 5}, ODrive{Can0, 7} };
+}
 
 void printWatchdogError(Watchdog &watchdog);
 void serialPrintln(int bufferSize, const char *format, ...);

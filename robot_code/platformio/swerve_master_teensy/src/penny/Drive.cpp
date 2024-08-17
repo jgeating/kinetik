@@ -2,6 +2,7 @@
 #include "DueCANLayer.h"
 #include <math.h>
 #include "shared/utils.h"
+#include "Arduino.h"
 
 extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte *cData, byte cDataLen);
 

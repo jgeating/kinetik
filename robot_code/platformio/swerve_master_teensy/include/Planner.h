@@ -6,6 +6,7 @@
 #include "PID.h"
 #include "state.h"
 #include "shared/utils.h"
+#include "math.h"
 
 // Robot level planning
 class Planner
