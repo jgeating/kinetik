@@ -80,10 +80,10 @@ SwerveTelemetry swerveTelemetry;
 
 void setup()
 {
-
-  analogReadResolution(12);
   // Serial and CAN setup
   Serial.begin(460800); // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
+
+  analogReadResolution(12);
 
   motors::Can0.begin();
   motors::Can0.setBaudRate(1000000);
@@ -130,7 +130,7 @@ void setup()
   padx_pid = new PID(padVars.kp[0], padVars.ki[0], padVars.kd[0], dt, padVars.lag[0]);
   pady_pid = new PID(padVars.kp[1], padVars.ki[1], padVars.kd[1], dt, padVars.lag[1]);
   padz_pid = new PID(padVars.kp[2], padVars.ki[2], padVars.kd[2], dt, padVars.lag[2]);
-  lights = new Lights(2, 65);
+  // lights = new Lights(2, 65);
 
   padx_pid->setSetpoint(0); // setpoint = 0 means try to put human center of pressure at middle of footpad
   pady_pid->setSetpoint(0);
@@ -143,6 +143,7 @@ void setup()
   // swerveTelemetry.start();
 
   Serial.println("Startup Complete.");
+  delay(1000);
 }
 
 void teleop()
@@ -238,10 +239,10 @@ void serialPrints()
     // Serial.println(planner->getDriveWheelSpeed(0));
     // for (int i = 0; i < 8; i++){
     // Serial.print(pads->getForce(i));
-    Serial.print(pads->getForce(3));
+    // Serial.print(pads->getForce(3));
     // Serial.print(", \t");
     // }
-    Serial.println();
+    // Serial.println();
   }
 
   if (modes.mode == Mode::PADS)

@@ -27,8 +27,10 @@ Drive::Drive(double vMax, double aMax, double dRatio, double tInner, int len, in
     this->vMax *= 10 * this->odriveRatio;
 
     motors::drive[this->mot].enableWithClosedLoop();
+    Serial.print("Setting motor to closed loop control mode: ");
+    Serial.println(this->mot);
 
-    delay(1000);
+    delay(100);
   }
 }
 
@@ -62,7 +64,7 @@ void Drive::slewVel(double vel, int ch, int rcLost)
 void Drive::setVel(double vel, int ch, int rcLost)
 { // vel is in erpm
   // vel = -vel;   // added 9/2/2023 because robot direction was reversed
- 
+
   bool eStop = !(ch > 400 && !rcLost);
 
   // erpm to rpm
@@ -71,8 +73,16 @@ void Drive::setVel(double vel, int ch, int rcLost)
 
   if (ch > 400 && !rcLost)
   { // Only send motor if safety channel is in the correct range, and rc signal is present
+    if (this->mot == 0)
+    {
+      Serial.println("velocity:");
+      Serial.println(velocity);
+      Serial.println(vel);
+    }
     motors::drive[this->mot].setVelocity(velocity);
-  } else {  // Actively command zero velocity for ODrives. Otherwise, they will latch velocity. Might find a way to configure auto timeout in the future
+  }
+  else
+  { // Actively command zero velocity for ODrives. Otherwise, they will latch velocity. Might find a way to configure auto timeout in the future
     motors::drive[this->mot].setVelocity(0);
   }
 }

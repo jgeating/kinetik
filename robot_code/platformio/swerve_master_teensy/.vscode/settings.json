@@ -6,6 +6,9 @@
         "flexcan_t4.h": "c",
         "imxrt_flexcan.h": "c",
         "circular_buffer.h": "c",
-        "cstddef": "cpp"
+        "cstddef": "cpp",
+        "vector": "cpp",
+        "*.tpp": "cpp",
+        "numbers": "cpp"
     }
 }

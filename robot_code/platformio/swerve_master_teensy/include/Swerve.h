@@ -167,8 +167,9 @@ namespace motors
 {
   static FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
   // front right, back right, back left, front left
-  static RMD_M6 steer[] = { RMD_M6{Can0, 0}, RMD_M6{Can0, 1}, RMD_M6{Can0, 2}, RMD_M6{Can0, 3} };
-  static ODrive drive[] = { ODrive{Can0, 0}, ODrive{Can0, 1}, ODrive{Can0, 2}, ODrive{Can0, 3} };
+  // static RMD_M6 steer[] = { RMD_M6{Can0, 0}, RMD_M6{Can0, 1}, RMD_M6{Can0, 2}, RMD_M6{Can0, 3} };
+  static ODrive steer[] = { ODrive{Can0, 0}, ODrive{Can0, 2}, ODrive{Can0, 4}, ODrive{Can0, 6} };
+  static ODrive drive[] = { ODrive{Can0, 1}, ODrive{Can0, 3}, ODrive{Can0, 5}, ODrive{Can0, 7} };
 }
 
 void printWatchdogError(Watchdog &watchdog);

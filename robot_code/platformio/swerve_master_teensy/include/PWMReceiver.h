@@ -4,7 +4,7 @@
 #include "Arduino.h"
 #include "shared/Channel.h" // for RC PWM inputs
 
-const int CHANNEL_PIN[] = {
+const int PENNY_CHANNEL_PIN[] = {
     38, // left stick vertical, forward = (+)
     40, // right stick horizontal, R = (+)
     42, // right stick vertical, forward = (+)
@@ -13,6 +13,17 @@ const int CHANNEL_PIN[] = {
     48, // right knob, CW = (+)
     50, // left switch, backwards = (-)
     52  // right switch, backwards = (-)
+};
+
+const int BABY_TIGER_CHANNEL_PIN[] = {
+    38, // left stick vertical, forward = (+)
+    39, // right stick horizontal, R = (+)
+    40, // right stick vertical, forward = (+)
+    41, // left stick horizontal, R = (+)
+    27, // left knob, CW = (+)
+    26, // right knob, CW = (+)
+    25, // left switch, backwards = (-)
+    24  // right switch, backwards = (-)
 };
 
 class PWMReceiver
@@ -37,7 +48,7 @@ public:
   {
     for (int i = 0; i < chs; i++)
     {
-      channels[i] = new Channel(CHANNEL_PIN[i], chOff[i]);
+      channels[i] = new Channel(BABY_TIGER_CHANNEL_PIN[i], chOff[i]);
     }
   }
 
