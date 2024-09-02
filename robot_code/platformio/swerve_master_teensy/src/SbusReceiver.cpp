@@ -3,6 +3,10 @@
 
 SbusReceiver::SbusReceiver() : m_sbusRx{bfs::SbusRx(&Serial2)}
 {
+}
+
+void SbusReceiver::init()
+{
     m_sbusRx.Begin();
 }
 
@@ -15,7 +19,7 @@ void SbusReceiver::read()
     }
 }
 
-double SbusReceiver::getChannelData(SbusReceiverChannels channel, int16_t defaultValue = 0)
+double SbusReceiver::getChannelData(SbusReceiverChannels channel, double defaultValue = 0.0)
 {
     int8_t channelNum = static_cast<int8_t>(channel);
 

@@ -16,6 +16,7 @@
 #include "shared/LowPassFilter.cpp" // Low pass filter class
 #include "penny/Lights.h"
 #include "SwerveTelemetry.h"
+#include "SbusReceiver.h"
 
 // Definitions
 #pragma region
@@ -77,6 +78,7 @@ LowPassFilter filter(10); // create a low-pass filter with 10 readings
 #pragma endregion
 
 SwerveTelemetry swerveTelemetry;
+SbusReceiver sbusReceiver;
 
 void setup()
 {
@@ -87,6 +89,8 @@ void setup()
 
   motors::Can0.begin();
   motors::Can0.setBaudRate(1000000);
+
+  sbusReceiver.init();
 
   for (int i = 0; i < 4; i++)
   {
@@ -290,6 +294,7 @@ void loop()
 {
   // startProfile(profiles.robotLoop);
   // printWatchdogError(watchdog);
+  sbusReceiver.read();
   telemetry();
   loopTiming.now = micros();
 

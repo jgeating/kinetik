@@ -27,10 +27,11 @@ private:
   const int16_t CHANNEL_DATA_MAX = 1811;
   const int16_t CHANNEL_DATA_ZERO = 992;
 
-  double getChannelData(SbusReceiverChannels channel, int16_t defaultValue = -1);
+  double getChannelData(SbusReceiverChannels channel, double defaultValue = 0.0);
 
 public:
   SbusReceiver();
+  void init();
   void read();
 
   double getBlueSwitch();
