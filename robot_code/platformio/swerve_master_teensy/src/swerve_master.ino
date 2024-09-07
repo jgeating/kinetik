@@ -239,7 +239,7 @@ void serialPrints()
     pads->calcVector();
     // Serial.println(pads->getForce(3));
     // Serial.println(pads->getY());
-    // Serial.println(planner->getTargetVY());
+    Serial.println(planner->getTargetVZ());
     // Serial.println(planner->getDriveWheelSpeed(0));
     // for (int i = 0; i < 8; i++){
     // Serial.print(pads->getForce(i));
