@@ -250,14 +250,14 @@ void serialPrints()
     pads->calcVector();
     // Serial.println(pads->getForce(3));
     // Serial.println(pads->getY());
-    // Serial.println(planner->getTargetVY());
+    Serial.println(planner->getTargetVZ());
     // Serial.println(planner->getDriveWheelSpeed(0));
     // for (int i = 0; i < 8; i++){
       // Serial.print(pads->getForce(i));
-      Serial.print(pads->getForce(3));
+      // Serial.print(pads->getForce(3));
       // Serial.print(", \t");
     // }
-    Serial.println();
+    // Serial.println();
   }
 
   if (modes.mode == Mode::PADS)
