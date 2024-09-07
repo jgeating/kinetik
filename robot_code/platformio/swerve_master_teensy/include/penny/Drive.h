@@ -1,5 +1,5 @@
-#include "DueCANLayer.h"
 #include <math.h>
+#include "DueCANLayer.h"
  
 #ifndef _DRIVE_
 #define _DRIVE_

@@ -1,4 +1,3 @@
-#include "DueCANLayer.h"      // CAN library for CAN shield
 #include <math.h>             // Math functions
 #include "Kinematics.h"       // wheel level kinematics/trigonometry
 #include "Planner.h"          // robot level planning
@@ -17,6 +16,7 @@
 #include "shared/LowPassFilter.cpp" // Low pass filter class
 #include "penny/Lights.h"
 #include "SwerveTelemetry.h"
+#include "SbusReceiver.h"
 
 // Definitions
 #pragma region
@@ -28,7 +28,7 @@ double led_val = 0.0;
 #define DEAD_ZONE 0.1
 #define pi 3.14159265358979
 #define TELEMETRY_REPORT_PERIOD 500000
-#define MCU "DUE"  // Either "T4_1", or "DUE" 
+#define MCU "DUE" // Either "T4_1", or "DUE"
 
 // General stuff, controls
 char buff[100] = ""; // For various sprintf print outs
@@ -55,12 +55,7 @@ Pads *pads;       // For driving with force pads
 PID *padx_pid;    // PID controller for weight (pad) steering in X (sideways) axis
 PID *pady_pid;    // PID controller for weight (pad) steering in Y (forwards) axis
 PID *padz_pid;    // PID controller for weight (pad) steering in Z (rotation) axis
-Lights *lights;   // Controls LED strips for signals/entertainment 
-
-// CAN Stuff
-extern byte canInit(byte cPort, long lBaudRate);
-extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte *cData, byte cDataLen);
-extern byte canRx(byte cPort, long *lMsgID, bool *bExtendedFormat, byte *cData, byte *cDataLen);
+Lights *lights;   // Controls LED strips for signals/entertainment
 
 SwerveCAN can;
 Drive::Type types[] = {Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE};
@@ -83,26 +78,19 @@ LowPassFilter filter(10); // create a low-pass filter with 10 readings
 #pragma endregion
 
 SwerveTelemetry swerveTelemetry;
+SbusReceiver sbusReceiver;
 
 void setup()
 {
-  analogReadResolution(12);
   // Serial and CAN setup
-  Serial.begin(460800);  // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
+  Serial.begin(460800); // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
 
-  if (MCU == "DUE"){  // CAN setup for Due 
-    Serial.println("Initializing CAN and pinmodes...");
-    if (canInit(0, CAN_BPS_1000K) == CAN_OK)
-      Serial.print("CAN0: Initialized Successfully.\n\r");
-    else
-      Serial.print("CAN0: Initialization Failed.\n\r");
-    if (canInit(1, CAN_BPS_1000K) == CAN_OK)
-      Serial.print("CAN1: Initialized Successfully.\n\r");
-    else
-      Serial.print("CAN1: Initialization Failed.\n\r");
-  } else if (MCU == "T4_1") { // CAN setup for Teensy 4.1
-    
-  }
+  analogReadResolution(12);
+
+  motors::Can0.begin();
+  motors::Can0.setBaudRate(1000000);
+
+  sbusReceiver.init();
 
   for (int i = 0; i < 4; i++)
   {
@@ -146,7 +134,7 @@ void setup()
   padx_pid = new PID(padVars.kp[0], padVars.ki[0], padVars.kd[0], dt, padVars.lag[0]);
   pady_pid = new PID(padVars.kp[1], padVars.ki[1], padVars.kd[1], dt, padVars.lag[1]);
   padz_pid = new PID(padVars.kp[2], padVars.ki[2], padVars.kd[2], dt, padVars.lag[2]);
-  lights = new Lights(2, 65);
+  // lights = new Lights(2, 65);
 
   padx_pid->setSetpoint(0); // setpoint = 0 means try to put human center of pressure at middle of footpad
   pady_pid->setSetpoint(0);
@@ -154,11 +142,12 @@ void setup()
 
   planner = new Planner(loopTiming.tInner, traj, padVars, kin);
 
-  pads->calibrate();  // Zero footpads, assuming zero weight on them 
+  pads->calibrate(); // Zero footpads, assuming zero weight on them
 
   // swerveTelemetry.start();
 
   Serial.println("Startup Complete.");
+  delay(1000);
 }
 
 void teleop()
@@ -253,9 +242,9 @@ void serialPrints()
     Serial.println(planner->getTargetVZ());
     // Serial.println(planner->getDriveWheelSpeed(0));
     // for (int i = 0; i < 8; i++){
-      // Serial.print(pads->getForce(i));
-      // Serial.print(pads->getForce(3));
-      // Serial.print(", \t");
+    // Serial.print(pads->getForce(i));
+    // Serial.print(pads->getForce(3));
+    // Serial.print(", \t");
     // }
     // Serial.println();
   }
@@ -305,6 +294,7 @@ void loop()
 {
   // startProfile(profiles.robotLoop);
   // printWatchdogError(watchdog);
+  sbusReceiver.read();
   telemetry();
   loopTiming.now = micros();
 
@@ -376,11 +366,13 @@ void loop()
       zeroFootPads();
     }
 
-    if (pwmReceiver.getRedSwitch() < 400 || pwmReceiver.rcLost){  // Safety loop. This runs if motors aren't meant to be spinning 
+    if (pwmReceiver.getRedSwitch() < 400 || pwmReceiver.rcLost)
+    { // Safety loop. This runs if motors aren't meant to be spinning
       // Serial.println("Shutting off ODrive Motor ID 1");
-      int idd = 1 << 5 | 0x0c;
-      unsigned char stmp_temp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      canTx(1, idd, false, stmp_temp, 8);
+      for (int i = 0; i < 4; i++)
+      {
+        motors::drive[i].setVelocity(0);
+      }
     }
   }
   // printProfiles(profiles);
@@ -466,6 +458,7 @@ void telemetry()
 
   // Serial.println("\n");
 }
+
 // 2.4 GHz RECEIVER  FUNCTIONS
 void calcCh1()
 {

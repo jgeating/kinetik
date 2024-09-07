@@ -1,6 +1,7 @@
 #include <math.h>
-#include "DueCANLayer.h"
 #include "shared/utils.h"
+#include <cmath>
+#include "Arduino.h"
 
 //************************** SUPER GENERIC FUNCTIONS ******************
 // return the sign of a number
