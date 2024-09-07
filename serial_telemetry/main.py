@@ -74,7 +74,6 @@ def configureArduino():
     arduinoThread.daemon = True
     arduinoThread.start()
 
-
 def handleLocalMessage(aMessage):
     print("=> [" + aMessage + "]")
     arduino.write(aMessage.encode('utf-8'))
@@ -87,7 +86,6 @@ def is_number(s):
         return True
     except ValueError:
         return False
-
 
 # ---- MAIN CODE -----
 baudRate = 460800
