@@ -24,11 +24,22 @@
 int rctemp[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Temp storage for rc value debugging
 double led_val = 0.0;
 
+// Temporary pad variables for teensy amplifiers 
+double temp1 = 0;     // misc temp variable
+double x_temp = 0;
+double y_temp = 0;
+double z_temp = 0;
+double x_zero = 0;  // temporary zeroing variable for pads
+double y_zero = 0;
+double z_zero = 0;
+
+int lastLoopTime = 0; // Temporary variable to store length of last loop, in microseconds
+
 #define RADIUS_SWERVE_ASSEMBLY 0.25 // distance to wheel swerve axes, meters
 #define DEAD_ZONE 0.1
 #define pi 3.14159265358979
 #define TELEMETRY_REPORT_PERIOD 500000
-#define MCU "DUE"  // Either "T4_1", or "DUE" 
+#define MCU "DUE" // Either "T4_1", or "DUE"
 
 // General stuff, controls
 char buff[100] = ""; // For various sprintf print outs
@@ -55,12 +66,12 @@ Pads *pads;       // For driving with force pads
 PID *padx_pid;    // PID controller for weight (pad) steering in X (sideways) axis
 PID *pady_pid;    // PID controller for weight (pad) steering in Y (forwards) axis
 PID *padz_pid;    // PID controller for weight (pad) steering in Z (rotation) axis
-Lights *lights;   // Controls LED strips for signals/entertainment 
+Lights *lights;   // Controls LED strips for signals/entertainment
 
 // CAN Stuff
 extern byte canInit(byte cPort, long lBaudRate);
-extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte *cData, byte cDataLen);
-extern byte canRx(byte cPort, long *lMsgID, bool *bExtendedFormat, byte *cData, byte *cDataLen);
+extern byte canTx(byte cPort, long lMsgID, bool bExtendedFormat, byte* cData, byte cDataLen);
+extern byte canRx(byte cPort, long* lMsgID, bool* bExtendedFormat, byte* cData, byte* cDataLen);
 
 SwerveCAN can;
 Drive::Type types[] = {Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE};
@@ -88,9 +99,10 @@ void setup()
 {
   analogReadResolution(12);
   // Serial and CAN setup
-  Serial.begin(460800);  // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
+  Serial.begin(460800); // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
 
-  if (MCU == "DUE"){  // CAN setup for Due 
+  if (MCU == "DUE")
+  { // CAN setup for Due
     Serial.println("Initializing CAN and pinmodes...");
     if (canInit(0, CAN_BPS_1000K) == CAN_OK)
       Serial.print("CAN0: Initialized Successfully.\n\r");
@@ -100,8 +112,9 @@ void setup()
       Serial.print("CAN1: Initialized Successfully.\n\r");
     else
       Serial.print("CAN1: Initialization Failed.\n\r");
-  } else if (MCU == "T4_1") { // CAN setup for Teensy 4.1
-    
+  }
+  else if (MCU == "T4_1")
+  { // CAN setup for Teensy 4.1
   }
 
   for (int i = 0; i < 4; i++)
@@ -154,7 +167,7 @@ void setup()
 
   planner = new Planner(loopTiming.tInner, traj, padVars, kin);
 
-  pads->calibrate();  // Zero footpads, assuming zero weight on them 
+  pads->calibrate(); // Zero footpads, assuming zero weight on them
 
   // swerveTelemetry.start();
 
@@ -177,6 +190,42 @@ void teleop()
   planner->plan_teleop(traj.input[0], traj.input[1], traj.input[2], traj.input[3]);
 }
 
+bool receivePadSteeringFromCAN(double &x, double &y, double &z)
+{
+  long msgId;
+  bool bExtendedFormat;
+  byte data[6];
+  uint8_t dataLength;
+
+  // delayMicroseconds(can.steerCanDelay);
+  byte status = canRx(0, &msgId, &bExtendedFormat, &data[0], &dataLength);
+  // delayMicroseconds(can.steerCanDelay);
+
+  if (status == CAN_OK)
+  {
+    if (msgId == 10)
+    {
+      uint16_t padRawValues[3];
+      memcpy(padRawValues, data, 6);
+      x = padRawValues[0] / pow(2, 15) - 1;
+      y = padRawValues[1] / pow(2, 15) - 1;
+      z = padRawValues[2] / pow(2, 15) - 1;
+      temp1 = z;
+
+      // Serial.println("LOAD CELLS:");
+      // Serial.print(x);
+      // Serial.print(", ");
+      // Serial.print(y);
+      // Serial.print(", ");
+      // Serial.print(z, 4);
+      // Serial.println();
+
+      return true;
+    }
+  }
+  return false;
+}
+
 void padRiding()
 {
   double hand_remote_val = constrain(pwmReceiver.getHandheld() / 1000.0, -0.5, 0.5) + 0.5; // ch 3 rewired to read value from handheld e-skate remote
@@ -185,11 +234,17 @@ void padRiding()
   bool hand_active_driving = hand_remote_val > 0.2;
   pads->calcVector();
 
-  double x = pads->getX();
-  double y = pads->getY();
-  double z = pads->getZ();
+  double x = 0; // pads->getX();
+  double y = 0; // pads->getY();
+  double z = 0; // pads->getZ();
 
-  planner->plan_pads(x, y, z, hand_remote_val);
+  if (receivePadSteeringFromCAN(x, y, z)){  // Only assign variables if we get a measurement. Otherwise, values will be assigned to 0
+    x_temp = x;
+    y_temp = y;
+    z_temp = z;
+  }
+
+  planner->plan_pads(x_temp, y_temp, z_temp, hand_remote_val);
   if (pwmReceiver.isBlueSwitchDown() || modes.zeroing || hand_zeroing || hand_remote_estopped)
   {
     planner->eStop();
@@ -202,8 +257,8 @@ void updateLoopTiming()
   { // This means we can't keep up with the desired loop rate. Trip LED to indicate so
     digitalWrite(13, HIGH);
     loopTiming.lastInner = loopTiming.now;
-  }
-  else
+  } 
+  else 
   {
     digitalWrite(13, LOW);
     loopTiming.lastInner = loopTiming.lastInner + loopTiming.tInner;
@@ -218,22 +273,18 @@ void serialPrints()
   bool plot = plotCounter % 10 == 0;
   if (plot)
   {
-    // Serial.print("Velocity vector: ");
-    // Serial.println(planner->get_vv() * 180.0 / PI);
-    // Serial.print("Input vector: ");
-    // Serial.println(atan2(traj.input[1], traj.input[0]) * 180.0 / PI);
-    // Serial.print("vv rate: ");
-    // Serial.println(planner->get_vvd());
-    // Serial.print("Temp var: ");
-    // Serial.println(planner->getTemp());
-
     // Serial.print("Target VX:");
     // Serial.print(planner->getTargetVX());
+    // Serial.println(loopTiming.now - loopTiming.lastInner);
     // Serial.print(" | ");
     // Serial.print("Target VY:");
-    // Serial.println(planner->getTargetVY());
+    // Serial.print(planner->getTargetVY());
     // Serial.print(" | ");      Serial.print("Target VZ:");
-    // Serial.println(planner->getTargetVZ());
+    // Serial.print(planner->getTargetVZ());
+
+    // Serial.print(planner->get_input(2));
+    // Serial.print(temp1);
+    // Serial.println();
 
     // for (int j = 0; j < 8; j++)
     // {
@@ -244,38 +295,6 @@ void serialPrints()
     // }
     // Serial.println("********");
     // pads->printDebug();
-
-    // Serial.println(planner->getTargetVX());
-
-    pads->calcVector();
-    // Serial.println(pads->getForce(3));
-    // Serial.println(pads->getY());
-    // Serial.println(planner->getTargetVY());
-    // Serial.println(planner->getDriveWheelSpeed(0));
-    // for (int i = 0; i < 8; i++){
-      // Serial.print(pads->getForce(i));
-      Serial.print(pads->getForce(3));
-      // Serial.print(", \t");
-    // }
-    Serial.println();
-  }
-
-  if (modes.mode == Mode::PADS)
-  {
-    // Serial.println("***********");
-    // Serial.print("X: ");
-    // Serial.print(planner->getTargetVX());
-    // Serial.print(" | Y: ");
-    // Serial.println(planner->getTargetVY());
-    // Serial.print(" | Z: ");
-    // Serial.println(planner->getTargetVZ());
-
-    // Serial.print(planner->getMotAngle(0) * 180 / PI);
-    // Serial.println(pads->getX());
-    // Serial.println(pads->getY());
-    // Serial.println(pads->getZ());
-    // Serial.println("***********");
-    // delay(20);
   }
 }
 
@@ -294,6 +313,9 @@ void zeroFootPads()
   case Mode::PADS:
     // Serial.println("Pads zeroing");
     pads->calibrate();
+    x_zero = x_temp;
+    y_zero = y_temp;
+    z_zero = z_temp;
     planner->eStop();
     break;
   default:
@@ -310,6 +332,7 @@ void loop()
 
   if (loopTiming.now - loopTiming.lastInner > loopTiming.tInner)
   {
+    lastLoopTime = loopTiming.now - loopTiming.lastInner;
     updateLoopTiming();
 
     switch (modes.mode)
@@ -376,7 +399,8 @@ void loop()
       zeroFootPads();
     }
 
-    if (pwmReceiver.getRedSwitch() < 400 || pwmReceiver.rcLost){  // Safety loop. This runs if motors aren't meant to be spinning 
+    if (pwmReceiver.getRedSwitch() < 400 || pwmReceiver.rcLost)
+    { // Safety loop. This runs if motors aren't meant to be spinning
       // Serial.println("Shutting off ODrive Motor ID 1");
       int idd = 1 << 5 | 0x0c;
       unsigned char stmp_temp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};

@@ -7,6 +7,7 @@ double osc_ang = 1000;   // oscillation angle, degrees
 double ratio = 1;
 CAN_message_t msg;
 float pos = 0.0;  // Steering motor position
+int mot = 0;
 
 void setup(void) {
   Serial.begin(115200);
@@ -15,6 +16,8 @@ void setup(void) {
   digitalWrite(6, LOW); /* optional tranceiver enable pin */
   Can0.begin();
   Can0.setBaudRate(1000000);
+
+  digitalWrite(13, HIGH);
 
   Serial.println("Sending motor to starting position");
   ang = -osc_ang * 100 * ratio / 2;
@@ -28,7 +31,7 @@ void setup(void) {
   // stmp[0] = 0xA3;
   // stmp[3] = 0x00;
 
-  msg.id = 0x141;
+  msg.id = 0x141 + mot;
   msg.flags.extended = false;
   for ( uint8_t i = 0; i < 8; i++ ){
     msg.buf[i] = stmp[i];

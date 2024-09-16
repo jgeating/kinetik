@@ -116,13 +116,16 @@ double applyDeadband(double input, double deadband) {
 }
 int Planner::plan_pads(double x_in, double y_in, double z_in, double gain_in)
 {
-  
-  // padx_pid->setInput(applyDeadband(x_in, .1));
-  padx_pid->setInput(x_in);
-  pady_pid->setInput(y_in);
-  padz_pid->setInput(z_in);
+  this->input[0] = x_in;
+  this->input[1] = y_in;
+  this->input[2] = z_in;
 
-  PadControlMode control_mode[] = {PadControlMode::DEACTIVATED, PadControlMode::DEACTIVATED, PadControlMode::VELOCITY}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
+  // padx_pid->setInput(applyDeadband(x_in, .1));
+  padx_pid->setInput(input[0]);
+  pady_pid->setInput(input[1]);
+  padz_pid->setInput(input[2]);
+
+  PadControlMode control_mode[] = {PadControlMode::DEACTIVATED, PadControlMode::ACCELERATION, PadControlMode::VELOCITY}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
 
   // this->setZeros(input[0], input[1], input[2], gain_in); // 7/21/2024 - what is this for? commenting out
   for (int i = 0; i < 3; i++)
@@ -223,9 +226,10 @@ int Planner::driveTo(double vel, int ind)
 }
 int Planner::calcFromVels() // Robot level slew limits etc. would be applied here
 {
-  // double qd_d_mag = sqrt(pow(this->qd_d[0], 2) + pow(this->qd_d[1], 2));
-  // double vv_d = atan2(this->qd_d[1], this->qd_d[0]);
-  // double vv_d_err = dewrap(vv_d - this->vv);
+  // double qd_d_mag = sqrt(pow(this->qd_d[0], 2) + pow(this->qd_d[1], 2));  // magnitude of velocity
+  // double vv_current = atan2(this->qd_d[1], this->qd_d[0]);  // current velocity vector
+  // double vv_d = vv_current;                                 // velocity vector, radians 
+  // double vv_d_err = dewrap(vv_d - this->vv);                // velocity vector error, radians
   // double vv_allowed = this->vv + vv_d_err * 0.05; // manually tuned multiplier to dampen vvd
 
   // double qd_dot = cos(vv_allowed) * this->qd_d[0] + sin(vv_allowed) * this->qd_d[1]; // dot product
@@ -408,4 +412,7 @@ double Planner::lim(double x, double a, double b)
   }
   else
     return x;
+}
+double Planner::get_input(int ch){
+  return this->input[ch];
 }

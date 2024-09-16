@@ -106,6 +106,7 @@ public:
   double getDriveWheelSpeed(int ind);
   double get_s_dir(int ind);
   double getTemp(); // temp function for debugging private vars
+  double get_input(int ch);
 };
 
 #endif
