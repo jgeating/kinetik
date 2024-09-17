@@ -59,6 +59,7 @@ private:
   double s_qd_max;                  // max steering stage velocity, rad/s
   double s_qdd_max;                 // max steering stage acceleration, rad/s^2
   double s_error_max;
+  double s_error_min;
   int min_tracking_wheels;
 
   // Drive variables

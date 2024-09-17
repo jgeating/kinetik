@@ -16,7 +16,7 @@ struct pad_vars
   float qdd_max[3] = {50, 50, 50};  // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
  
   // Control loop parameters
-  float kp[3] = {-600, -200, -50};      // Position term for weight control loop. {x, y, z}. Was -80, -40, -30
+  float kp[3] = {-300, -100, -25};      // Position term for weight control loop. {x, y, z}. Was -600, -200, -50
   float ki[3] = {0,   0,  0};      // Integral term
   float kd[3] = {60, 20,  1};      // Derivative term, should always be negative
   float lag[3] = {10,  10,  6};      // No. of samples for lag filter
@@ -65,9 +65,12 @@ struct SwerveTrajectory
   // Steering DOF parameters
   double s_qdd_max = 10000;           // max robot acceleration, erpm/sec, eventually m/s^2
   double s_error_max = 10 * PI / 180; // Max tracking error under which wheel won't start spinning, rad
-  int min_tracking_wheels = 3;        // Min number of wheels that must be under error before driving
 
-  double qd_r[3] = {3, 0, 0};         // regularization vector
+  // Singularity handling parameters 
+  int min_tracking_wheels = 3;        // Min number of wheels that must be under error before driving
+  double qd_r[3] = {3, 0, 0};                 // regularization vector
+  double th_steer_error_max = 60 * PI / 180;  // steering frame angle over which robot won't move at all, rad
+  double th_steer_error_min = 30 * PI / 180;  // steering frame angle error under which robot will move at full speed, rad
 };
 
 struct SwerveKinematics

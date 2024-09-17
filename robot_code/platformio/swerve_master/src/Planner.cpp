@@ -25,6 +25,8 @@ Planner::Planner(double tInner, SwerveTrajectory traj, pad_vars padVars, SwerveK
   this->qd_r[0] = traj.qd_r[0];
   this->qd_r[1] = traj.qd_r[1];
   this->qd_r[2] = traj.qd_r[2];
+  this->s_error_max = traj.th_steer_error_max;
+  this->s_error_min = traj.th_steer_error_min;
 
   // Pad steering related
   padx_pid = new PID(padVars.kp[0], padVars.ki[0], padVars.kd[0], dt, padVars.lag[0]);
@@ -125,7 +127,7 @@ int Planner::plan_pads(double x_in, double y_in, double z_in, double gain_in)
   pady_pid->setInput(input[1]);
   padz_pid->setInput(input[2]);
 
-  PadControlMode control_mode[] = {PadControlMode::DEACTIVATED, PadControlMode::ACCELERATION, PadControlMode::VELOCITY}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
+  PadControlMode control_mode[] = {PadControlMode::ACCELERATION, PadControlMode::ACCELERATION, PadControlMode::DEACTIVATED}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
 
   // this->setZeros(input[0], input[1], input[2], gain_in); // 7/21/2024 - what is this for? commenting out
   for (int i = 0; i < 3; i++)
@@ -226,14 +228,13 @@ int Planner::driveTo(double vel, int ind)
 }
 int Planner::calcFromVels() // Robot level slew limits etc. would be applied here
 {
+  // Velocity vector rate damping 
   // double qd_d_mag = sqrt(pow(this->qd_d[0], 2) + pow(this->qd_d[1], 2));  // magnitude of velocity
   // double vv_current = atan2(this->qd_d[1], this->qd_d[0]);  // current velocity vector
   // double vv_d = vv_current;                                 // velocity vector, radians 
   // double vv_d_err = dewrap(vv_d - this->vv);                // velocity vector error, radians
-  // double vv_allowed = this->vv + vv_d_err * 0.05; // manually tuned multiplier to dampen vvd
-
+  // double vv_allowed = this->vv + vv_d_err * 0.05;           // manually tuned multiplier to dampen vvd
   // double qd_dot = cos(vv_allowed) * this->qd_d[0] + sin(vv_allowed) * this->qd_d[1]; // dot product
-
   // this->qd[0] = cos(vv_allowed) * qd_dot;
   // this->qd[1] = sin(vv_allowed) * qd_dot;
   // this->qd[2] = qd_d[2];
@@ -251,27 +252,37 @@ int Planner::calcFromVels() // Robot level slew limits etc. would be applied her
   // bot_state->setInput(vvd_dt);
   // this->vvd = bot_state->compute();
 
-  int n_errors = 0;
+  // int n_errors = 0;
+  double squash_ratio = 1;  // ratio to squash velocity by, unitless
   for (int i = 0; i < 4; i++)
   {
     kinematics[i]->calc(this->qd[0], this->qd[1], this->qd[2]);
     this->steerTo(kinematics[i]->getTargetSteer(), i);
-    this->driveTo(kinematics[i]->getTargetVel(), i);
 
-    if (this->s_error[i] > this->s_error_max)
-    {
-      n_errors += 1;
-    }
+    // Velocity squashing for singularities 
+    double mult = constrain(abs(this->s_error[i]), this->s_error_min, this->s_error_max) - this->s_error_min;
+    mult = mult / (this->s_error_min - this->s_error_max);  // multiplier to squash velocity 
+    squash_ratio = min(mult, squash_ratio);
+
+    // if (this->s_error[i] > this->s_error_max)
+    // {
+    //   n_errors += 1;
+    // }
   }
 
-  if (n_errors > 2)
-  { // If 3 or more wheels are outside of error bounds,
+  for (int i = 0; i < 4; i++){
+    this->driveTo(kinematics[i]->getTargetVel() * (1 - squash_ratio), i);
+  }
+
+  // if (n_errors > 2)
+  // { // If 3 or more wheels are outside of error bounds,
     // this->qd_d[0] = 0;
     // this->qd_d[1] = 0;
     // this->qd_d[2] = 0;
-  }
+  // }
   return 1;
 }
+
 int Planner::calcFromAccels()
 { // use qdd_d as control input
   double del_qd = 0;
