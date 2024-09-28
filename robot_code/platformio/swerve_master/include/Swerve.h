@@ -16,10 +16,10 @@ struct pad_vars
   float qdd_max[3] = {50, 50, 50};  // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
  
   // Control loop parameters
-  float kp[3] = {-300, -100, -25};      // Position term for weight control loop. {x, y, z}. Was -600, -200, -50
-  float ki[3] = {0,   0,  0};      // Integral term
-  float kd[3] = {60, 20,  1};      // Derivative term, should always be negative
-  float lag[3] = {10,  10,  6};      // No. of samples for lag filter
+  float kp[3] = {-50, -40, -25};      // Position term for weight control loop. {x, y, z}. Was -600, -200, -50, then -50, -40, -25
+  float ki[3] = {  0,   0,   0};      // Integral term
+  float kd[3] = { 5,   5,  .1};      // Derivative term, should always be negative  Was 60, 20, then 5, 5, .1
+  float lag[3] = { 5,   5,   5};      // No. of samples for lag filter. Was 5, 10, 6, then 5, 5, 5
 };
  
 struct vest_vars
@@ -69,8 +69,8 @@ struct SwerveTrajectory
   // Singularity handling parameters 
   int min_tracking_wheels = 3;        // Min number of wheels that must be under error before driving
   double qd_r[3] = {3, 0, 0};                 // regularization vector
-  double th_steer_error_max = 60 * PI / 180;  // steering frame angle over which robot won't move at all, rad
-  double th_steer_error_min = 30 * PI / 180;  // steering frame angle error under which robot will move at full speed, rad
+  double th_steer_error_max = 40 * PI / 180;  // steering frame angle over which robot won't move at all, rad
+  double th_steer_error_min = 20 * PI / 180;  // steering frame angle error under which robot will move at full speed, rad
 };
 
 struct SwerveKinematics

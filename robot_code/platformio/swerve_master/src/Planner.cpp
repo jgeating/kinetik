@@ -127,7 +127,7 @@ int Planner::plan_pads(double x_in, double y_in, double z_in, double gain_in)
   pady_pid->setInput(input[1]);
   padz_pid->setInput(input[2]);
 
-  PadControlMode control_mode[] = {PadControlMode::ACCELERATION, PadControlMode::ACCELERATION, PadControlMode::DEACTIVATED}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
+  PadControlMode control_mode[] = {PadControlMode::ACCELERATION, PadControlMode::ACCELERATION, PadControlMode::VELOCITY}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
 
   // this->setZeros(input[0], input[1], input[2], gain_in); // 7/21/2024 - what is this for? commenting out
   for (int i = 0; i < 3; i++)
@@ -262,6 +262,7 @@ int Planner::calcFromVels() // Robot level slew limits etc. would be applied her
     // Velocity squashing for singularities 
     double mult = constrain(abs(this->s_error[i]), this->s_error_min, this->s_error_max) - this->s_error_min;
     mult = mult / (this->s_error_min - this->s_error_max);  // multiplier to squash velocity 
+    mult = abs(mult);
     squash_ratio = min(mult, squash_ratio);
 
     // if (this->s_error[i] > this->s_error_max)
@@ -271,8 +272,10 @@ int Planner::calcFromVels() // Robot level slew limits etc. would be applied her
   }
 
   for (int i = 0; i < 4; i++){
-    this->driveTo(kinematics[i]->getTargetVel() * (1 - squash_ratio), i);
+    // this->driveTo(kinematics[i]->getTargetVel() * (1 - squash_ratio), i);
+    this->driveTo(kinematics[i]->getTargetVel(), i);
   }
+  this->temp = squash_ratio;
 
   // if (n_errors > 2)
   // { // If 3 or more wheels are outside of error bounds,

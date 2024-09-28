@@ -283,6 +283,7 @@ void serialPrints()
     // Serial.print(planner->getTargetVZ());
 
     // Serial.print(planner->get_input(2));
+    // Serial.println(planner->getTemp());
     // Serial.print(temp1);
     // Serial.println();
 
