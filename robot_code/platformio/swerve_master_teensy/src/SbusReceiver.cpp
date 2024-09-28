@@ -14,9 +14,13 @@ void SbusReceiver::read()
 {
     if (m_sbusRx.Read())
     {
+
         /* Grab the received data */
         m_data = m_sbusRx.data();
-        lastDataReceiveTime = micros();
+        
+        if (!m_data.lost_frame) {
+            lastDataReceiveTime = micros();
+        }
     }
 }
 

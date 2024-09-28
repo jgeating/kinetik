@@ -277,6 +277,7 @@ void zeroFootPads()
 
 void loop()
 {
+
   // startProfile(profiles.robotLoop);
   // printWatchdogError(watchdog);
   sbusReceiver.read();
