@@ -10,7 +10,6 @@
 #include "Adafruit_BNO055.h"  // Downloaded library for IMU stuff
 #include "utility/imumaths.h" // Downloaded library for IMU stuff
 #include "Swerve.h"
-#include "PWMReceiver.h"
 #include "Performance.h"
 #include "PID.h"                    // For PID controllers
 #include "shared/LowPassFilter.cpp" // Low pass filter class
@@ -60,8 +59,6 @@ Lights *lights;   // Controls LED strips for signals/entertainment
 SwerveCAN can;
 Drive::Type types[] = {Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE, Drive::Type::ODRIVE};
 
-// PWM/Receiver stuff
-PWMReceiver pwmReceiver;
 RobotState robotState;
 Drive **drive = new Drive *[kin.nWheels];
 Steer **steer = new Steer *[kin.nWheels];
@@ -87,8 +84,8 @@ void setup()
 
   analogReadResolution(12);
 
-  motors::Can0.begin();
-  motors::Can0.setBaudRate(1000000);
+  motors::canBus1.begin();
+  motors::canBus1.setBaudRate(1000000);
 
   sbusReceiver.init();
 
@@ -100,21 +97,8 @@ void setup()
   // Set up digital I/O
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW); // Set up indicator LED
-  Serial.println("CAN and Pins initialized. Initializing RC interrupts...");
 
-  attachInterrupt(pwmReceiver.channels[0]->getPin(), calcCh1, CHANGE);
-  attachInterrupt(pwmReceiver.channels[1]->getPin(), calcCh2, CHANGE);
-  attachInterrupt(pwmReceiver.channels[2]->getPin(), calcCh3, CHANGE);
-  attachInterrupt(pwmReceiver.channels[3]->getPin(), calcCh4, CHANGE);
-  attachInterrupt(pwmReceiver.channels[4]->getPin(), calcCh5, CHANGE);
-  attachInterrupt(pwmReceiver.channels[5]->getPin(), calcCh6, CHANGE);
-  attachInterrupt(pwmReceiver.channels[6]->getPin(), calcCh7, CHANGE);
-  attachInterrupt(pwmReceiver.channels[7]->getPin(), calcCh8, CHANGE);
-  delay(100); // Wait for rc channels to initially detect, before zeroing
-  // for (int i = 1; i < 4; i++){  // Zero spring centered joysticks
-  //   pwmReceiver.channels[i]->zero();
-  // }
-  Serial.println("RC interrrupts initialized. Setting up kinematics and trajectory planning objects...");
+  Serial.println("CAN and Pins initialized. Setting up kinematics and trajectory planning objects...");
 
   delay(3000); // Need a delay between CAN initialization and ODRIVE initialization (in the Drive class)
 
@@ -154,13 +138,14 @@ void teleop()
 {
   for (int k = 0; k < 4; k++)
   {
-    if (k != 3)
-    {
-      traj.input[k] = constrain(pwmReceiver.channels[k + 1]->getCh() / 500.0, -1.0, 1.0);
-    }
-    else
-    {
-      traj.input[3] = constrain(pwmReceiver.getLeftVert() / 1000.0, -0.5, 0.5) + 0.5;
+    if (k == 0) {
+      traj.input[k] = constrain(sbusReceiver.getRightHor(), -1.0, 1.0);
+    } else if (k == 1) {
+      traj.input[k] = constrain(sbusReceiver.getRightVert(), -1.0, 1.0);
+    } else if (k == 2) {
+      traj.input[k] = constrain(sbusReceiver.getLeftHor(), -1.0, 1.0);
+    } else {
+      traj.input[k] = constrain(sbusReceiver.getLeftVert() * .5, -0.5, 0.5) + 0.5;
     }
   }
   planner->plan_teleop(traj.input[0], traj.input[1], traj.input[2], traj.input[3]);
@@ -168,7 +153,7 @@ void teleop()
 
 void padRiding()
 {
-  double hand_remote_val = constrain(pwmReceiver.getHandheld() / 1000.0, -0.5, 0.5) + 0.5; // ch 3 rewired to read value from handheld e-skate remote
+  double hand_remote_val = constrain(sbusReceiver.getHandheld() * .5, -0.5, 0.5) + 0.5; // ch 3 rewired to read value from handheld e-skate remote
   bool hand_remote_estopped = hand_remote_val < 0.2 && hand_remote_val > -0.2;
   bool hand_zeroing = hand_remote_val <= -0.2;
   bool hand_active_driving = hand_remote_val > 0.2;
@@ -179,7 +164,7 @@ void padRiding()
   double z = pads->getZ();
 
   planner->plan_pads(x, y, z, hand_remote_val);
-  if (pwmReceiver.isBlueSwitchDown() || modes.zeroing || hand_zeroing || hand_remote_estopped)
+  if (sbusReceiver.isBlueSwitchDown() || modes.zeroing || hand_zeroing || hand_remote_estopped)
   {
     planner->eStop();
   }
@@ -229,7 +214,7 @@ void serialPrints()
     //   Serial.print("Channel ");
     //   Serial.print(j);
     //   Serial.print(": ");
-    //   Serial.println(pwmReceiver.channels[j]->getCh());
+    //   Serial.println(sbusReceiver.getChannelData(j));
     // }
     // Serial.println("********");
     // pads->printDebug();
@@ -296,6 +281,7 @@ void loop()
   // printWatchdogError(watchdog);
   sbusReceiver.read();
   telemetry();
+
   loopTiming.now = micros();
 
   if (loopTiming.now - loopTiming.lastInner > loopTiming.tInner)
@@ -313,9 +299,9 @@ void loop()
     }
     for (int i = 0; i < kin.nWheels; i++)
     {                                                                                           // Send commands to all motors
-      steer[i]->motTo(planner->getMotAngle(i), pwmReceiver.getRedSwitch(), pwmReceiver.rcLost); // Red, (-) is up
+      steer[i]->motTo(planner->getMotAngle(i), sbusReceiver.getRedSwitch(), sbusReceiver.rcLost()); // Red, (-) is up
       delayMicroseconds(can.steerCanDelay);                                                     // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
-      drive[i]->setVel(-planner->getDriveWheelSpeed(i), pwmReceiver.getRedSwitch(), pwmReceiver.rcLost);
+      drive[i]->setVel(-planner->getDriveWheelSpeed(i), sbusReceiver.getRedSwitch(), sbusReceiver.rcLost());
       delayMicroseconds(can.driveCanDelay);
     }
     serialPrints();
@@ -329,15 +315,14 @@ void loop()
   {
     loopTiming.lastOuter = loopTiming.lastOuter + loopTiming.tOuter;
     //***********************BEGIN SLOW LOOP*******************************
-    checkRx(); // check if receiver signal has been lost
 
     // Check channels, modes
-    if (pwmReceiver.getRightKnob() > 400)
+    if (sbusReceiver.getRightKnob() > 400)
     {
       calMotor(can); // Calibrate motors
     }
 
-    if (pwmReceiver.isBlueSwitchUp())
+    if (sbusReceiver.isBlueSwitchUp())
     { // default mode is tele-op, blue stick top position
       if (modes.mode != Mode::TELEOP)
       {
@@ -349,7 +334,7 @@ void loop()
       modes.zeroing = false;
     }
 
-    if (pwmReceiver.isBlueSwitchCentered()) // Mode switch is centered
+    if (sbusReceiver.isBlueSwitchCentered()) // Mode switch is centered
     {                                       // IMU zeroing mode
       if (modes.mode != Mode::PADS)
       {
@@ -361,12 +346,12 @@ void loop()
     }
 
     // remote pulled back or transmitter in zeroing mode
-    if (pwmReceiver.getHandheld() < -100 || pwmReceiver.isBlueSwitchDown())
+    if (sbusReceiver.getHandheld() < -.1 || sbusReceiver.isBlueSwitchDown())
     {
       zeroFootPads();
     }
 
-    if (pwmReceiver.getRedSwitch() < 400 || pwmReceiver.rcLost)
+    if (sbusReceiver.getRedSwitch() < .9 || sbusReceiver.rcLost())
     { // Safety loop. This runs if motors aren't meant to be spinning
       // Serial.println("Shutting off ODrive Motor ID 1");
       for (int i = 0; i < 4; i++)
@@ -386,13 +371,12 @@ void calMotor(SwerveCAN &can)
   for (int j = 0; j < kin.nWheels; j++)
   {
     steer[j]->setHoming(2); // set homing mode to true for all axes
-    steer[j]->motTo(0, pwmReceiver.getRedSwitch(), pwmReceiver.rcLost);
+    steer[j]->motTo(0, sbusReceiver.getRedSwitch(), sbusReceiver.rcLost());
   }
   delay(1000);           // Give motor time to move to zero position if it is wound up
   double fineTune = 1.0; // to step in less than 1 deg increments - this is the ratio (0.2 would be in 0.2 degree increments
   for (int i = 0; i < (int)(360 * abs(kin.yRatio) * 1.5 / fineTune); i++)
   {
-    checkRx();
     for (int j = 0; j < kin.nWheels; j++)
     {
       can.pos = i * fineTune;
@@ -412,7 +396,7 @@ void calMotor(SwerveCAN &can)
       { // position signal should persist, but motor should stop moving after cal marker is detected
         can.pos = steer[j]->getMPos();
       }
-      steer[j]->motTo(can.pos * PI / 180.0, pwmReceiver.getRedSwitch(), pwmReceiver.rcLost);
+      steer[j]->motTo(can.pos * PI / 180.0, sbusReceiver.getRedSwitch(), sbusReceiver.rcLost());
     }
     delayMicroseconds(800);
     doneHoming = 1;
@@ -435,18 +419,7 @@ double mapDouble(double x, double min_in, double max_in, double min_out, double 
   ret = ret * (max_out - min_out) + min_out;
   return ret;
 }
-// This function detects if a receiver signal has been received recently. Used for safety, etc.
-void checkRx()
-{
-  if (micros() - pwmReceiver.channels[pwmReceiver.estop_ch]->getLastInterruptTime() > pwmReceiver.rcTimeout)
-  {
-    pwmReceiver.rcLost = 1;
-  }
-  else
-  {
-    pwmReceiver.rcLost = 0;
-  }
-}
+
 void telemetry()
 {
   unsigned long time = micros();
@@ -459,37 +432,4 @@ void telemetry()
   // Serial.println("\n");
 }
 
-// 2.4 GHz RECEIVER  FUNCTIONS
-void calcCh1()
-{
-  pwmReceiver.channels[0]->calc();
-}
-void calcCh2()
-{
-  pwmReceiver.channels[1]->calc();
-}
-void calcCh3()
-{
-  pwmReceiver.channels[2]->calc();
-}
-void calcCh4()
-{
-  pwmReceiver.channels[3]->calc();
-}
-void calcCh5()
-{
-  pwmReceiver.channels[4]->calc();
-}
-void calcCh6()
-{
-  pwmReceiver.channels[5]->calc();
-}
-void calcCh7()
-{
-  pwmReceiver.channels[6]->calc();
-}
-void calcCh8()
-{
-  pwmReceiver.channels[7]->calc();
-}
 #pragma endregion

@@ -22,18 +22,22 @@ private:
   bfs::SbusRx m_sbusRx;
   /* SBUS data */
   bfs::SbusData m_data;
+  uint32_t lastDataReceiveTime = 0;
+  u_int32_t RC_TIMEOUT = 100000; // number of microseconds before receiver timeout is tripped - make sure it is a good bit longer than 2000 microseconds
 
   const int16_t CHANNEL_DATA_MIN = 172;
   const int16_t CHANNEL_DATA_MAX = 1811;
   const int16_t CHANNEL_DATA_ZERO = 992;
+  const double CHANNEL_DATA_MAGNITUDE = CHANNEL_DATA_ZERO - CHANNEL_DATA_MIN;
 
-  double getChannelData(SbusReceiverChannels channel, double defaultValue = 0.0);
 
 public:
   SbusReceiver();
   void init();
   void read();
+  int rcLost();
 
+  double getChannelData(SbusReceiverChannels channel, double defaultValue = 0.0);
   double getBlueSwitch();
   bool isBlueSwitchUp();
   bool isBlueSwitchDown();
