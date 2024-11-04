@@ -81,18 +81,25 @@ void setup()
 {
   // Serial and CAN setup
   Serial.begin(460800); // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
+  delay(400);
 
   analogReadResolution(12);
 
   motors::canBus1.begin();
   motors::canBus1.setBaudRate(1000000);
 
+  delay(500);
+
+  for (int i = 0; i < 4; i++) {
+    motors::steer[i].printMessage();
+  }
+
   sbusReceiver.init();
 
-  for (int i = 0; i < 4; i++)
-  {
-    pinMode(robotState.irPin[i], INPUT);
-  }
+  // for (int i = 0; i < 4; i++)
+  // {
+  //   pinMode(robotState.irPin[i], INPUT);
+  // }
 
   // Set up digital I/O
   pinMode(13, OUTPUT);
@@ -277,7 +284,6 @@ void zeroFootPads()
 
 void loop()
 {
-
   // startProfile(profiles.robotLoop);
   // printWatchdogError(watchdog);
   sbusReceiver.read();
@@ -299,13 +305,14 @@ void loop()
       break;
     }
     for (int i = 0; i < kin.nWheels; i++)
-    {                                                                                           // Send commands to all motors
+    {        
+                                                                                         // Send commands to all motors
       steer[i]->motTo(planner->getMotAngle(i), sbusReceiver.getRedSwitch(), sbusReceiver.rcLost()); // Red, (-) is up
       delayMicroseconds(can.steerCanDelay);                                                     // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
       drive[i]->setVel(-planner->getDriveWheelSpeed(i), sbusReceiver.getRedSwitch(), sbusReceiver.rcLost());
       delayMicroseconds(can.driveCanDelay);
     }
-    serialPrints();
+    // serialPrints();
   }
   else // Overtiming
   {

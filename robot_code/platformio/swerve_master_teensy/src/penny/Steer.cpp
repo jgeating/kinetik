@@ -64,10 +64,9 @@ void Steer::motTo(double ang, int ch, int rcLost){
   // for (int m = 0; m < this->len; m++) {
   //   this->cTxData0[this->len - m - 1] = (int)(ang * 1000000.0) >> 8*m;
   // }
-  int32_t ang_int = (int32_t)(ang * 100);  // RMD-X6 takes angle over CAN as int32 in hundredths of degrees
-
-  if (ch > -200 && !rcLost){ // Only send motor if ch [estop] is turned to center or farther, and rc signal is present
-    motors::steer[this->mot].setPosition(ang_int);
+ 
+  if (ch >= 0 && !rcLost){ // Only send motor if ch [estop] is turned to center or farther, and rc signal is present
+    motors::steer[this->mot].setPosition(ang);
   }
 }
 

@@ -20,8 +20,6 @@ private:
   const int m_motorId;
   CAN_message_t m_msg;
   bool m_printMessageOnWrite = false;
-  unsigned char cTxData0[8] = {0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // 0xA3 is for sending position commands
-
 
   void write();
 };
