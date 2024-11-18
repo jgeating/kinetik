@@ -375,6 +375,10 @@ double Planner::getMotAngle(int ind)
 {
   return this->s_mot_q[ind];
 }
+double Planner::getMotSteerVel(int ind) 
+{
+  return this->s_qd[ind];
+}
 double Planner::getDriveWheelSpeed(int ind)
 {
   return this->d_qd[ind];

@@ -29,6 +29,7 @@ class Steer
     Steer(double vMax, double aMax, double yRatio, double tInner, int len, int mot);
     void yawTo(double ang, int ch, int rcLost);
     void motTo(double ang, int ch, int rcLost);
+    void motTo(double ang, double steerVel, int ch, int rcLost);
     void setYaw(double steer);
     void setMPos(double mPos);
     void setVel(double v);

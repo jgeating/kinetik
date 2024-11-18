@@ -20,25 +20,11 @@
 // Definitions
 #pragma region
 
-int rctemp[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Temp storage for rc value debugging
-double led_val = 0.0;
-
 #define RADIUS_SWERVE_ASSEMBLY 0.25 // distance to wheel swerve axes, meters
 #define DEAD_ZONE 0.1
 #define pi 3.14159265358979
 #define TELEMETRY_REPORT_PERIOD 500000
 #define MCU "DUE" // Either "T4_1", or "DUE"
-
-// General stuff, controls
-char buff[100] = ""; // For various sprintf print outs
-double qd_d = 0;     // temporary used for testing vest acceleration control. Stores instantaneous velocity
-double qdd_d = 0;
-double temp = 0; // generic doubles for testing new things
-double temp2 = 0;
-double temp3 = 0;
-double global_gain = 0; // Used for various things
-double dt = 0;          // loop period. Pulled from timing loop parameter, converted from usec to sec
-int bringupMode = -1;   // Bringup mode. set to -1 for normal operation, 0... are for bringing up specific axes for single DOF PID tuning 0 = X, 1 = Y, 2 = Z
 
 // Instantiate structs
 SwerveTrajectory traj;
@@ -96,10 +82,11 @@ void setup()
 
   sbusReceiver.init();
 
-  // for (int i = 0; i < 4; i++)
-  // {
-  //   pinMode(robotState.irPin[i], INPUT);
-  // }
+  for (int i = 0; i < 4; i++)
+  {
+    // This is causing CAN stuff on the steering motors not to work for some reason
+    // pinMode(robotState.irPin[i], INPUT);
+  }
 
   // Set up digital I/O
   pinMode(13, OUTPUT);
@@ -120,7 +107,7 @@ void setup()
   }
 
   // Set up pad pid classes
-  dt = loopTiming.tInner / 1000000.0;
+  double dt = loopTiming.tInner / 1000000.0;
   pads = new Pads();
   padx_pid = new PID(padVars.kp[0], padVars.ki[0], padVars.kd[0], dt, padVars.lag[0]);
   pady_pid = new PID(padVars.kp[1], padVars.ki[1], padVars.kd[1], dt, padVars.lag[1]);
@@ -192,74 +179,6 @@ void updateLoopTiming()
   }
 }
 
-void serialPrints()
-{
-  // Serial prints @ reduced rate
-  plotCounter++;
-  bool plot = plotCounter % 10 == 0;
-  if (plot)
-  {
-    // Serial.print("Velocity vector: ");
-    // Serial.println(planner->get_vv() * 180.0 / PI);
-    // Serial.print("Input vector: ");
-    // Serial.println(atan2(traj.input[1], traj.input[0]) * 180.0 / PI);
-    // Serial.print("vv rate: ");
-    // Serial.println(planner->get_vvd());
-    // Serial.print("Temp var: ");
-    // Serial.println(planner->getTemp());
-
-    // Serial.print("Target VX:");
-    // Serial.print(planner->getTargetVX());
-    // Serial.print(" | ");
-    // Serial.print("Target VY:");
-    // Serial.println(planner->getTargetVY());
-    // Serial.print(" | ");      Serial.print("Target VZ:");
-    // Serial.println(planner->getTargetVZ());
-
-    // for (int j = 0; j < 8; j++)
-    // {
-    //   Serial.print("Channel ");
-    //   Serial.print(j);
-    //   Serial.print(": ");
-    //   Serial.println(sbusReceiver.getChannelData(j));
-    // }
-    // Serial.println("********");
-    // pads->printDebug();
-
-    // Serial.println(planner->getTargetVX());
-
-    pads->calcVector();
-    // Serial.println(pads->getForce(3));
-    // Serial.println(pads->getY());
-    Serial.println(planner->getTargetVZ());
-    // Serial.println(planner->getDriveWheelSpeed(0));
-    // for (int i = 0; i < 8; i++){
-    // Serial.print(pads->getForce(i));
-    // Serial.print(pads->getForce(3));
-    // Serial.print(", \t");
-    // }
-    // Serial.println();
-  }
-
-  if (modes.mode == Mode::PADS)
-  {
-    // Serial.println("***********");
-    // Serial.print("X: ");
-    // Serial.print(planner->getTargetVX());
-    // Serial.print(" | Y: ");
-    // Serial.println(planner->getTargetVY());
-    // Serial.print(" | Z: ");
-    // Serial.println(planner->getTargetVZ());
-
-    // Serial.print(planner->getMotAngle(0) * 180 / PI);
-    // Serial.println(pads->getX());
-    // Serial.println(pads->getY());
-    // Serial.println(pads->getZ());
-    // Serial.println("***********");
-    // delay(20);
-  }
-}
-
 void zeroFootPads()
 {
   if (!modes.zeroing)
@@ -306,13 +225,11 @@ void loop()
     }
     for (int i = 0; i < kin.nWheels; i++)
     {        
-                                                                                         // Send commands to all motors
-      steer[i]->motTo(planner->getMotAngle(i), sbusReceiver.getRedSwitch(), sbusReceiver.rcLost()); // Red, (-) is up
+      steer[i]->motTo(planner->getMotAngle(i), planner->getMotSteerVel(i), sbusReceiver.getRedSwitch(), sbusReceiver.rcLost()); // Red, (-) is up
       delayMicroseconds(can.steerCanDelay);                                                     // Nasty bug where going from 3 motors to 4 per bus required a 100 us delay instead of 50
       drive[i]->setVel(-planner->getDriveWheelSpeed(i), sbusReceiver.getRedSwitch(), sbusReceiver.rcLost());
       delayMicroseconds(can.driveCanDelay);
     }
-    // serialPrints();
   }
   else // Overtiming
   {
