@@ -63,26 +63,19 @@ void Drive::slewVel(double vel, int ch, int rcLost)
 // This function sends a Drive motor command - CAN layer, does not account for acceleration limits. Safety cutoff is done here
 void Drive::setVel(double vel, int ch, int rcLost)
 { // vel is in erpm
-  // vel = -vel;   // added 9/2/2023 because robot direction was reversed
-
-  bool eStop = !(ch > 400 && !rcLost);
+  // vel = -vel;   // added 9/2/2023 because robot direction was reversed  bool eStop = !(ch > 400 && !rcLost);
+  bool eStop = !(ch > 0 && !rcLost);
 
   // erpm to rpm
-  float velocity = eStop ? 0 : vel * this->odriveRatio;
+  float velocity = vel * this->odriveRatio;
   float torqueFF = 0.0;
 
-  if (ch > 400 && !rcLost)
+  if (!eStop)
   { // Only send motor if safety channel is in the correct range, and rc signal is present
-    if (this->mot == 0)
-    {
-      Serial.println("velocity:");
-      Serial.println(velocity);
-      Serial.println(vel);
-    }
-    motors::drive[this->mot].setVelocity(velocity);
+    motors::drive[this->mot].setVelocity(velocity * 100);
   }
   else
-  { // Actively command zero velocity for ODrives. Otherwise, they will latch velocity. Might find a way to configure auto timeout in the future
+  { // Actively command zero velocity for ODrives. Otherwise, they will latch velocity. Might find a way to configure auto timeout in the future    
     motors::drive[this->mot].setVelocity(0);
   }
 }

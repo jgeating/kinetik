@@ -2,11 +2,12 @@
 #define	__ODRIVE_H
 
 #include <FlexCAN_T4.h>
+#include "Constants.h"
 
 class ODrive {
 
 public:
-  ODrive(const FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16>& can, const int canId);
+  ODrive(const FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16>& can, const int canId);
   void setPosition(float position);
   void setAbsolutePosition(float position);
   void setVelocity(float revPerSec);
@@ -22,7 +23,7 @@ public:
   float getEncoderVelocity();
 
 private:
-  const FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16>& m_can;
+  const FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16>& m_can;
   const int m_canId;
   CAN_message_t m_msg;
   CAN_message_t m_encoderEstimateMsg;

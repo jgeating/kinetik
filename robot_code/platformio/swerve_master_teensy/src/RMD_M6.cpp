@@ -1,6 +1,6 @@
 #include "RMD_M6.h"
 
-RMD_M6::RMD_M6(const FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> &can, const int motorId)
+RMD_M6::RMD_M6(const FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16> &can, const int motorId)
     : m_can{can}, m_motorId{motorId}
 {
   m_msg.flags.extended = false;
@@ -8,7 +8,8 @@ RMD_M6::RMD_M6(const FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> &can, const int m
   m_msg.len = 8;
 }
 
-void RMD_M6::setPosition(float angleDegrees) {
+void RMD_M6::setPosition(float angleDegrees)
+{
   setPosition(angleDegrees, 720);
 }
 

@@ -3,16 +3,17 @@
 // #include <math.h>
 // #include "utils.h"
 #include "SwerveTelemetry.h"
+#include "sbus.h"
 
-// temp 
-unsigned char steer_stmp[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+// temp
+unsigned char steer_stmp[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 CAN_message_t steer_msg;
 
 // CAN related
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
 
-int id_steer = 0;       // Motor ID
-int id_drive = 1;       // Drive motor ID
+int id_steer = 1;       // Motor ID
+int id_drive = 2;       // Drive motor ID
 float pos = 0.0;        // Steering motor position
 float steer_tff = 0.0;  // Steering motor feedforward torque
 
@@ -26,6 +27,8 @@ SwerveTelemetry swerveTelemetry;
 
 void setup(void) {
   Serial.begin(115200);
+  Serial.print("Setting up...");
+
   // swerveTelemetry.start(); // requires ethernet to be ready
 
   delay(400);
@@ -61,8 +64,8 @@ void loop() {
   delayMicroseconds(50);
   driveMotor.setVelocity(1);
   delayMicroseconds(50);
-  // float position = driveMotor.getEncoderPosition();
-  // float velocity = driveMotor.getEncoderVelocity();
+  float position = driveMotor.getEncoderPosition();
+  float velocity = driveMotor.getEncoderVelocity();
   // Serial.print("Encoder Position: ");
   // Serial.println(position);
   // Serial.print("Encoder Velocity: ");

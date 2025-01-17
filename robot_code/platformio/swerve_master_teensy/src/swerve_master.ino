@@ -242,7 +242,7 @@ void loop()
     //***********************BEGIN SLOW LOOP*******************************
 
     // Check channels, modes
-    if (sbusReceiver.getRightKnob() > 400)
+    if (sbusReceiver.getRightKnob() > .6)
     {
       calMotor(can); // Calibrate motors
     }

@@ -1,6 +1,6 @@
 #include "ODrive.h"
 
-ODrive::ODrive(const FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16>& can, const int canId)
+ODrive::ODrive(const FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16>& can, const int canId)
   : m_can{ can }, m_canId{ canId } {
   m_msg.flags.extended = false;
   m_encoderEstimateMsg.flags.extended = false;
