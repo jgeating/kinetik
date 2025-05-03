@@ -1,7 +1,6 @@
 #include <FlexCAN_T4.h>
 // #include "ODrive.h"
 #include "Vesc.h"
-#include "SwerveTelemetry.h"
 #include "sbus.h"
 
 // temp
@@ -11,18 +10,16 @@ CAN_message_t steer_msg;
 // CAN related
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
 
-int id_steer = 1;       // Motor ID
-int id_drive = 2;       // Drive motor ID
+int id_steer = 0;       // Motor ID
+int id_drive = 10;       // Drive motor ID
 float pos = 0.0;        // Steering motor position
 float steer_tff = 0.0;  // Steering motor feedforward torque
 
-float vel = 0.0;  // Drive motor velocity
+double vel = 0.0;  // Drive motor velocity
 float drive_tff = 0.0;
 
 // ODrive steerMotor{ Can0, id_steer };
 Vesc driveMotor{ Can0, id_drive };
-
-SwerveTelemetry swerveTelemetry;
 
 void setup(void) {
   Serial.begin(115200);
@@ -50,13 +47,13 @@ void setup(void) {
 }
 
 void loop() {
-  pos = pos + 0.001;
-  Serial.print("Steering position: ");
-  Serial.println(pos);
   // steerMotor.setPosition(pos);
+  vel += .05;
   delayMicroseconds(50);
-  driveMotor.setVelocity(1);
+  driveMotor.setVelocity(fmod(vel, 10));
+
   delayMicroseconds(50);
+
   float position = driveMotor.getEncoderPosition();
   float velocity = driveMotor.getEncoderVelocity();
   

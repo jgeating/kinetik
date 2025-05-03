@@ -9,7 +9,7 @@ public:
   Vesc(const FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16>& can, const int canId);
   void setPosition(float position);
   void setAbsolutePosition(float position);
-  void setVelocity(float revPerSec);
+  void setVelocity(double vel);
   void disable();
   void enableWithClosedLoop();
   void enablePrintOnWrite();

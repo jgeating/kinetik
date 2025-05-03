@@ -23,7 +23,7 @@ void Vesc::setVelocity(double vel) {
   m_msg.id = m_canId | CAN_PACKET_SET_RPM << 8;
   m_msg.len = 4;
   for (int m = 0; m < 4; m++) {
-    m_msg.buf[len - m - 1] = (int)(vel * dRatio) >> 8 * m;
+    m_msg.buf[4 - m - 1] = (int)(vel * dRatio) >> 8 * m;
   }
   write();
 }
