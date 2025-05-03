@@ -9,6 +9,7 @@
 #include "ODrive.h"
 #include "RMD_M6.h"
 #include <FlexCAN_T4.h>
+#include "Constants.h"
 
 #define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
@@ -165,11 +166,11 @@ struct Watchdog
 
 namespace motors
 {
-  static FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
+  static FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16> canBus1;
   // front right, back right, back left, front left
-  // static RMD_M6 steer[] = { RMD_M6{Can0, 0}, RMD_M6{Can0, 1}, RMD_M6{Can0, 2}, RMD_M6{Can0, 3} };
-  static ODrive steer[] = { ODrive{Can0, 0}, ODrive{Can0, 2}, ODrive{Can0, 4}, ODrive{Can0, 6} };
-  static ODrive drive[] = { ODrive{Can0, 1}, ODrive{Can0, 3}, ODrive{Can0, 5}, ODrive{Can0, 7} };
+  static RMD_M6 steer[] = { RMD_M6{canBus1, 0}, RMD_M6{canBus1, 1}, RMD_M6{canBus1, 2}, RMD_M6{canBus1, 3} };
+  // static ODrive steer[] = { ODrive{Can0, 0}, ODrive{Can0, 2}, ODrive{Can0, 4}, ODrive{Can0, 6} };
+  static ODrive drive[] = { ODrive{canBus1, 1}, ODrive{canBus1, 3}, ODrive{canBus1, 5}, ODrive{canBus1, 7} };
 }
 
 void printWatchdogError(Watchdog &watchdog);

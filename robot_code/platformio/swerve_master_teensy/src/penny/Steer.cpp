@@ -56,18 +56,24 @@ void Steer::yawTo(double ang, int ch, int rcLost){
 }
 
 // This function sends a steer motor command - CAN layer, does not account for acceleration limits. Safety cutoff is done here
-void Steer::motTo(double ang, int ch, int rcLost){
+void Steer::motTo(double ang, double steerVel, int ch, int rcLost){
   ang = ang * 180.0 / PI; // rmd operates with degree as unit
-  //this->mPos = ang;
-  // used in yawTo(), calMotor()
-  
-  // for (int m = 0; m < this->len; m++) {
-  //   this->cTxData0[this->len - m - 1] = (int)(ang * 1000000.0) >> 8*m;
-  // }
-  int32_t ang_int = (int32_t)(ang * 100);  // RMD-X6 takes angle over CAN as int32 in hundredths of degrees
 
-  if (ch > -200 && !rcLost){ // Only send motor if ch [estop] is turned to center or farther, and rc signal is present
-    motors::steer[this->mot].setPosition(ang_int);
+  ang /= 9;
+  Serial.printf("Angle (%d): %f, %f\n", this->mot, ang, steerVel);
+ 
+  if (ch >= 0 && !rcLost){ // Only send motor if ch [estop] is turned to center or farther, and rc signal is present
+    motors::steer[this->mot].setPosition(ang, steerVel);
+  }
+}
+
+void Steer::motTo(double ang, int ch, int rcLost) 
+{
+  ang = ang * 180.0 / PI; // rmd operates with degree as unit
+  ang /= 9;
+
+  if (ch >= 0 && !rcLost){ // Only send motor if ch [estop] is turned to center or farther, and rc signal is present
+    motors::steer[this->mot].setPosition(ang);
   }
 }
 

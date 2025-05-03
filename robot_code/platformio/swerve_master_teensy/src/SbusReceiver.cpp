@@ -14,9 +14,20 @@ void SbusReceiver::read()
 {
     if (m_sbusRx.Read())
     {
+
         /* Grab the received data */
         m_data = m_sbusRx.data();
+        
+        if (!m_data.lost_frame) {
+            lastDataReceiveTime = micros();
+        }
     }
+}
+
+int SbusReceiver::rcLost() {
+    uint32_t now = micros();
+    bool timedOut = (now - lastDataReceiveTime) > RC_TIMEOUT;
+    return timedOut ? 1 : 0;
 }
 
 double SbusReceiver::getChannelData(SbusReceiverChannels channel, double defaultValue = 0.0)
@@ -28,7 +39,7 @@ double SbusReceiver::getChannelData(SbusReceiverChannels channel, double default
         return defaultValue;
     }
 
-    return m_data.ch[channelNum] - CHANNEL_DATA_ZERO;
+    return (m_data.ch[channelNum] - CHANNEL_DATA_ZERO) / CHANNEL_DATA_MAGNITUDE;
 }
 
 double SbusReceiver::getBlueSwitch()

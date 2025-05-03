@@ -104,6 +104,7 @@ public:
   double get_vvd();
   double getSteerAngle(int ind);
   double getMotAngle(int ind);
+  double getMotSteerVel(int ind);
   double getDriveWheelSpeed(int ind);
   double get_s_dir(int ind);
   double getTemp(); // temp function for debugging private vars
