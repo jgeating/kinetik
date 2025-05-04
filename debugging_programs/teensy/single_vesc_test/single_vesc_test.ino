@@ -2,6 +2,7 @@
 // #include "ODrive.h"
 #include "Vesc.h"
 #include "sbus.h"
+#include "SbusReceiver.h"
 
 // temp
 unsigned char steer_stmp[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -20,6 +21,7 @@ float drive_tff = 0.0;
 
 // ODrive steerMotor{ Can0, id_steer };
 Vesc driveMotor{ Can0, id_drive };
+SbusReceiver sbusReceiver;
 
 void setup(void) {
   Serial.begin(115200);
@@ -44,13 +46,24 @@ void setup(void) {
   driveMotor.enableWithClosedLoop();
   driveMotor.setVelocityControlMode();
   delay(100);
+
+  sbusReceiver.init();
+
+  delay(3000);
+
 }
 
 void loop() {
+  sbusReceiver.read();
   // steerMotor.setPosition(pos);
   vel += .05;
   delayMicroseconds(50);
-  driveMotor.setVelocity(fmod(vel, 10));
+  Serial.print("RIGHT Y: ");
+  Serial.print(sbusReceiver.getRightVert());
+  Serial.println();
+  Serial.println("CAN msg:");
+  // driveMotor.setVelocity(fmod(vel, 10));
+  driveMotor.setVelocity(10 * sbusReceiver.getLeftVert());
 
   delayMicroseconds(50);
 
