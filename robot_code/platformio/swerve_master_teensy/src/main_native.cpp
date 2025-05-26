@@ -1,7 +1,7 @@
 /**
  * @file main_native.cpp
  * @brief Native C++ entry point for desktop simulation
- * 
+ *
  * This file provides the main() function for running the swerve robot code
  * on a desktop computer for simulation and testing purposes.
  */
@@ -10,16 +10,23 @@
 
 #if HAL_IMPLEMENTATION == HAL_SIM
 
-#include "hal/HALFactory.h"
-#include "hal/sim/SimulationInterface.h"
 #include <iostream>
 #include <signal.h>
 #include <chrono>
 #include <thread>
 
-// Forward declarations of main robot functions
-void robotSetup();
-void robotLoop();
+// Temporary minimal implementation for testing
+void robotSetup() {
+    std::cout << "Robot setup complete!" << std::endl;
+}
+
+void robotLoop() {
+    // Minimal robot loop for testing
+    static int counter = 0;
+    if (++counter % 1000 == 0) {
+        std::cout << "Robot loop running... " << counter << std::endl;
+    }
+}
 
 // Global flag for clean shutdown
 std::atomic<bool> g_running{true};
@@ -38,7 +45,7 @@ void signalHandler(int signal) {
 void printBanner() {
     std::cout << "========================================" << std::endl;
     std::cout << "  Swerve Robot Simulation Mode" << std::endl;
-    std::cout << "  HAL Implementation: " << HALFactory::getImplementationType() << std::endl;
+    std::cout << "  HAL Implementation: Simulation" << std::endl;
     std::cout << "========================================" << std::endl;
 }
 
@@ -58,7 +65,7 @@ void printUsage(const char* programName) {
 int main(int argc, char* argv[]) {
     // Parse command line arguments
     std::string serverUrl = "ws://localhost:8080";
-    
+
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--help") {
@@ -72,58 +79,41 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     }
-    
+
     // Set up signal handlers for clean shutdown
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
-    
+
     printBanner();
-    
+
     try {
-        // Initialize simulation interface
-        std::cout << "Connecting to simulation server at " << serverUrl << "..." << std::endl;
-        SimulationManager simManager(serverUrl);
-        
-        if (!simManager.isReady()) {
-            std::cerr << "Failed to connect to simulation server!" << std::endl;
-            std::cerr << "Make sure the simulation server is running at " << serverUrl << std::endl;
-            return 1;
-        }
-        
-        std::cout << "Connected to simulation server successfully!" << std::endl;
-        
-        // Initialize HAL
-        std::cout << "Initializing HAL..." << std::endl;
-        HAL::initialize();
-        
+        std::cout << "Simulation server: " << serverUrl << std::endl;
+
         // Call robot setup (equivalent to Arduino setup())
         std::cout << "Running robot setup..." << std::endl;
         robotSetup();
-        
+
         std::cout << "Starting main loop..." << std::endl;
         std::cout << "Press Ctrl+C to stop" << std::endl;
-        
+
         // Main loop (equivalent to Arduino loop())
         auto lastLoopTime = std::chrono::steady_clock::now();
         const auto targetLoopTime = std::chrono::microseconds(4500); // 4.5ms loop time
-        
+
         while (g_running) {
             auto loopStart = std::chrono::steady_clock::now();
-            
-            // Update simulation interface
-            simManager.getInterface().update();
-            
+
             // Run robot loop
             robotLoop();
-            
+
             // Maintain consistent loop timing
             auto loopEnd = std::chrono::steady_clock::now();
             auto loopDuration = loopEnd - loopStart;
-            
+
             if (loopDuration < targetLoopTime) {
                 std::this_thread::sleep_for(targetLoopTime - loopDuration);
             }
-            
+
             // Print timing info occasionally
             static int loopCount = 0;
             if (++loopCount % 1000 == 0) {
@@ -133,17 +123,16 @@ int main(int argc, char* argv[]) {
                 lastLoopTime = std::chrono::steady_clock::now();
             }
         }
-        
+
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
-    
+
     // Clean shutdown
     std::cout << "Shutting down..." << std::endl;
-    HAL::shutdown();
     std::cout << "Shutdown complete." << std::endl;
-    
+
     return 0;
 }
 

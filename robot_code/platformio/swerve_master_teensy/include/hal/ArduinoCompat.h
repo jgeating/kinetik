@@ -7,7 +7,7 @@
 
 /**
  * @brief Arduino compatibility layer for simulation
- * 
+ *
  * This header provides Arduino-compatible functions and classes
  * that work in the native simulation environment.
  */
@@ -16,6 +16,8 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
+#include <thread>
+#include <chrono>
 
 // Arduino-style type definitions
 typedef uint8_t byte;
@@ -142,6 +144,15 @@ inline void randomSeed(unsigned long seed) {
     srand(seed);
 }
 
+// Delay functions (moved from HALConfig.h to avoid threading dependencies)
+inline void delay(unsigned long ms) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+
+inline void delayMicroseconds(unsigned long us) {
+    std::this_thread::sleep_for(std::chrono::microseconds(us));
+}
+
 // Mock Arduino functions that don't apply in simulation
 inline void pinMode(int pin, int mode) {
     // No-op in simulation
@@ -180,27 +191,27 @@ public:
     String(const std::string& str) : m_str(str) {}
     String(int value) : m_str(std::to_string(value)) {}
     String(double value) : m_str(std::to_string(value)) {}
-    
+
     const char* c_str() const { return m_str.c_str(); }
     size_t length() const { return m_str.length(); }
-    
+
     String operator+(const String& other) const {
         return String(m_str + other.m_str);
     }
-    
+
     String& operator+=(const String& other) {
         m_str += other.m_str;
         return *this;
     }
-    
+
     bool operator==(const String& other) const {
         return m_str == other.m_str;
     }
-    
+
     char operator[](size_t index) const {
         return m_str[index];
     }
-    
+
     char& operator[](size_t index) {
         return m_str[index];
     }
