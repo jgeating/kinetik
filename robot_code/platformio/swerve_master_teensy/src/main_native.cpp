@@ -4,30 +4,33 @@
  *
  * This file provides the main() function for running the swerve robot code
  * on a desktop computer for simulation and testing purposes.
+ *
+ * It calls the actual setup() and loop() functions from swerve_master.ino
+ * and handles HAL initialization for simulation mode.
  */
 
 #include "hal/HALConfig.h"
 
 #if HAL_IMPLEMENTATION == HAL_SIM
 
+// Include all simulation-specific headers that swerve_master.ino needs
+#include "hal/HALFactory.h"
+#include "hal/ArduinoCompat.h"
+
+// Standard C++ headers for simulation
 #include <iostream>
 #include <signal.h>
 #include <chrono>
 #include <thread>
 #include <atomic>
 
-// Temporary minimal implementation for testing
-void robotSetup() {
-    std::cout << "Robot setup complete!" << std::endl;
-}
+// Mock Arduino headers that the .ino file expects
+// These are provided by ArduinoCompat.h but we need to ensure they're available
+// when the .ino file is compiled
 
-void robotLoop() {
-    // Minimal robot loop for testing
-    static int counter = 0;
-    if (++counter % 1000 == 0) {
-        std::cout << "Robot loop running... " << counter << std::endl;
-    }
-}
+// Forward declarations of Arduino-style functions from swerve_master.ino
+extern void setup();
+extern void loop();
 
 // Global flag for clean shutdown
 std::atomic<bool> g_running{true};
@@ -90,9 +93,13 @@ int main(int argc, char* argv[]) {
     try {
         std::cout << "Simulation server: " << serverUrl << std::endl;
 
+        // Initialize HAL system for simulation
+        std::cout << "Initializing HAL for simulation..." << std::endl;
+        HAL::initialize();
+
         // Call robot setup (equivalent to Arduino setup())
         std::cout << "Running robot setup..." << std::endl;
-        robotSetup();
+        setup();
 
         std::cout << "Starting main loop..." << std::endl;
         std::cout << "Press Ctrl+C to stop" << std::endl;
@@ -105,7 +112,7 @@ int main(int argc, char* argv[]) {
             auto loopStart = std::chrono::steady_clock::now();
 
             // Run robot loop
-            robotLoop();
+            loop();
 
             // Maintain consistent loop timing
             auto loopEnd = std::chrono::steady_clock::now();
@@ -132,6 +139,7 @@ int main(int argc, char* argv[]) {
 
     // Clean shutdown
     std::cout << "Shutting down..." << std::endl;
+    HAL::shutdown();
     std::cout << "Shutdown complete." << std::endl;
 
     return 0;

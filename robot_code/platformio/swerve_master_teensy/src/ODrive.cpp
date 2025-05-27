@@ -1,43 +1,67 @@
-#include "ODrive.h"
+/**
+ * @file ODrive.cpp
+ * @brief Real hardware implementation of ODrive using FlexCAN_T4
+ */
 
-ODrive::ODrive(const FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16>& can, const int canId)
-  : m_can{ can }, m_canId{ canId } {
-  m_msg.flags.extended = false;
-  m_encoderEstimateMsg.flags.extended = false;
+#include "ODrive.h"
+#include <FlexCAN_T4.h>
+#include "Constants.h"
+
+// Private implementation details for real hardware
+class ODriveImpl {
+public:
+  CAN_message_t m_msg;
+  CAN_message_t m_encoderEstimateMsg;
+
+  ODriveImpl() {
+    m_msg.flags.extended = false;
+    m_encoderEstimateMsg.flags.extended = false;
+  }
+
+  // Get reference to the CAN bus (defined in Swerve.h)
+  FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16>& getCAN();
+};
+
+static ODriveImpl* impl = nullptr;
+
+ODrive::ODrive(int canId) : m_canId(canId), m_printMessageOnWrite(false) {
+  if (!impl) {
+    impl = new ODriveImpl();
+  }
 }
 
 void ODrive::setAbsolutePosition(float position) {
-  m_msg.id = m_canId << 5 | 0x19;
-  m_msg.len = 4;
-  memcpy(m_msg.buf, &position, sizeof(position));
-  write();
+  impl->m_msg.id = m_canId << 5 | 0x19;
+  impl->m_msg.len = 4;
+  memcpy(impl->m_msg.buf, &position, sizeof(position));
+  writeMessage();
 }
 
 void ODrive::setPosition(float position) {
   float torqueFF = 0.0;
 
-  m_msg.id = m_canId << 5 | 0x0c;
-  m_msg.len = 8;
-  memcpy(m_msg.buf, &position, sizeof(position));
-  memcpy(m_msg.buf + sizeof(position), &torqueFF, sizeof(torqueFF));
-  write();
+  impl->m_msg.id = m_canId << 5 | 0x0c;
+  impl->m_msg.len = 8;
+  memcpy(impl->m_msg.buf, &position, sizeof(position));
+  memcpy(impl->m_msg.buf + sizeof(position), &torqueFF, sizeof(torqueFF));
+  writeMessage();
 }
 
 void ODrive::setVelocity(float revPerSec) {
   float torqueFF = 0.0;
 
-  m_msg.id = m_canId << 5 | 0x0d;
-  m_msg.len = 8;
-  memcpy(m_msg.buf, &revPerSec, sizeof(revPerSec));
-  memcpy(m_msg.buf + sizeof(revPerSec), &torqueFF, sizeof(torqueFF));
-  write();
+  impl->m_msg.id = m_canId << 5 | 0x0d;
+  impl->m_msg.len = 8;
+  memcpy(impl->m_msg.buf, &revPerSec, sizeof(revPerSec));
+  memcpy(impl->m_msg.buf + sizeof(revPerSec), &torqueFF, sizeof(torqueFF));
+  writeMessage();
 }
 
 void ODrive::setAxisState(uint32_t state) {
-  m_msg.id = m_canId << 5 | 0x07;
-  m_msg.len = 4;
-  memcpy(m_msg.buf, &state, sizeof(state));
-  write();
+  impl->m_msg.id = m_canId << 5 | 0x07;
+  impl->m_msg.len = 4;
+  memcpy(impl->m_msg.buf, &state, sizeof(state));
+  writeMessage();
 }
 
 void ODrive::disable() {
@@ -57,9 +81,9 @@ void ODrive::disablePrintOnWrite() {
 }
 
 void ODrive::printMessage() {
-  for (uint8_t i = 0; i < m_msg.len; i++) {
-    Serial.print(m_msg.buf[i], HEX);
-    if (i < m_msg.len - 1) {
+  for (uint8_t i = 0; i < impl->m_msg.len; i++) {
+    Serial.print(impl->m_msg.buf[i], HEX);
+    if (i < impl->m_msg.len - 1) {
       Serial.print(", ");
     } else {
       Serial.println();
@@ -67,19 +91,25 @@ void ODrive::printMessage() {
   }
 }
 
-void ODrive::write() {
+void ODrive::writeMessage() {
   if (m_printMessageOnWrite) {
     printMessage();
   }
-  m_can.write(m_msg);
+  impl->getCAN().write(impl->m_msg);
+}
+
+// Implementation of getCAN() - access the global CAN bus from Swerve.h
+#include "Swerve.h"
+FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16>& ODriveImpl::getCAN() {
+  return motors::canBus1;
 }
 
 void ODrive::setControlMode(uint32_t controlMode, uint32_t inputMode) {
-  m_msg.id = m_canId << 5 | 0x0b;
-  m_msg.len = 8;
-  memcpy(m_msg.buf, &controlMode, sizeof(controlMode));
-  memcpy(m_msg.buf + sizeof(controlMode), &inputMode, sizeof(inputMode));
-  write();
+  impl->m_msg.id = m_canId << 5 | 0x0b;
+  impl->m_msg.len = 8;
+  memcpy(impl->m_msg.buf, &controlMode, sizeof(controlMode));
+  memcpy(impl->m_msg.buf + sizeof(controlMode), &inputMode, sizeof(inputMode));
+  writeMessage();
 }
 
 void ODrive::setPositionControlMode() {
@@ -91,11 +121,11 @@ void ODrive::setVelocityControlMode() {
 }
 
 void ODrive::getEncoderValues(float& position, float& velocity) {
-  m_encoderEstimateMsg.id = m_canId << 5 | 0x09;
-  m_encoderEstimateMsg.len = 8;
-  m_can.read(m_encoderEstimateMsg);
-  memcpy(&position, m_encoderEstimateMsg.buf, sizeof(position));
-  memcpy(&velocity, m_encoderEstimateMsg.buf + sizeof(position), sizeof(velocity));
+  impl->m_encoderEstimateMsg.id = m_canId << 5 | 0x09;
+  impl->m_encoderEstimateMsg.len = 8;
+  impl->getCAN().read(impl->m_encoderEstimateMsg);
+  memcpy(&position, impl->m_encoderEstimateMsg.buf, sizeof(position));
+  memcpy(&velocity, impl->m_encoderEstimateMsg.buf + sizeof(position), sizeof(velocity));
 }
 
 float ODrive::getEncoderVelocity() {

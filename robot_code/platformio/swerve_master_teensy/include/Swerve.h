@@ -1,14 +1,33 @@
 #ifndef _SWERVE_
 #define _SWERVE_
 
+#include "hal/HALConfig.h"
+
+#if HAL_IMPLEMENTATION == HAL_REAL
 #include "Arduino.h"
+#include <FlexCAN_T4.h>
+#include "RMD_M6.h"
+#elif HAL_IMPLEMENTATION == HAL_SIM
+#include "hal/ArduinoCompat.h"
+// Mock FlexCAN for simulation
+class MockFlexCAN {
+public:
+    void begin() {}
+    void setBaudRate(uint32_t rate) {}
+};
+// Mock RMD_M6 for simulation
+class MockRMD_M6 {
+public:
+    MockRMD_M6(MockFlexCAN& can, int id) {}
+    void printMessage() {}
+};
+#endif
+
 #include "Kinematics.h"     // wheel level kinematics/trigonometry
 #include "shared/utils.h"   // Basic utils like more powerful serial
 #include "shared/Channel.h" // for RC PWM inputs
 #include <math.h>
 #include "ODrive.h"
-#include "RMD_M6.h"
-#include <FlexCAN_T4.h>
 #include "Constants.h"
 
 #define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
@@ -166,11 +185,17 @@ struct Watchdog
 
 namespace motors
 {
+#if HAL_IMPLEMENTATION == HAL_REAL
   static FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16> canBus1;
   // front right, back right, back left, front left
   static RMD_M6 steer[] = { RMD_M6{canBus1, 0}, RMD_M6{canBus1, 1}, RMD_M6{canBus1, 2}, RMD_M6{canBus1, 3} };
+#elif HAL_IMPLEMENTATION == HAL_SIM
+  static MockFlexCAN canBus1;
+  // front right, back right, back left, front left
+  static MockRMD_M6 steer[] = { MockRMD_M6{canBus1, 0}, MockRMD_M6{canBus1, 1}, MockRMD_M6{canBus1, 2}, MockRMD_M6{canBus1, 3} };
+#endif
   // static ODrive steer[] = { ODrive{Can0, 0}, ODrive{Can0, 2}, ODrive{Can0, 4}, ODrive{Can0, 6} };
-  static ODrive drive[] = { ODrive{canBus1, 1}, ODrive{canBus1, 3}, ODrive{canBus1, 5}, ODrive{canBus1, 7} };
+  static ODrive drive[] = { ODrive{1}, ODrive{3}, ODrive{5}, ODrive{7} };
 }
 
 void printWatchdogError(Watchdog &watchdog);

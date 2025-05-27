@@ -1,45 +1,77 @@
+/**
+ * @file SbusReceiver.cpp
+ * @brief Real hardware implementation of SbusReceiver using sbus.h
+ *
+ * This implementation provides the real hardware interface using the
+ * Bolder Flight Systems SBUS library for actual SBUS communication.
+ */
+
 #include "SbusReceiver.h"
 #include "sbus.h"
 
-SbusReceiver::SbusReceiver() : m_sbusRx{bfs::SbusRx(&Serial2)}
-{
+// Private implementation details for real hardware
+class SbusReceiverImpl {
+public:
+  /* SBUS object, reading SBUS */
+  bfs::SbusRx m_sbusRx;
+  /* SBUS data */
+  bfs::SbusData m_data;
+  uint32_t lastDataReceiveTime = 0;
+  uint32_t RC_TIMEOUT = 100000; // number of microseconds before receiver timeout is tripped
+
+  const int16_t CHANNEL_DATA_MIN = 172;
+  const int16_t CHANNEL_DATA_MAX = 1811;
+  const int16_t CHANNEL_DATA_ZERO = 992;
+  const double CHANNEL_DATA_MAGNITUDE = CHANNEL_DATA_ZERO - CHANNEL_DATA_MIN;
+
+  SbusReceiverImpl() : m_sbusRx(&Serial2) {
+    // Initialize SBUS receiver on Serial2
+  }
+};
+
+static SbusReceiverImpl* impl = nullptr;
+
+SbusReceiver::SbusReceiver() {
+  if (!impl) {
+    impl = new SbusReceiverImpl();
+  }
 }
 
-void SbusReceiver::init()
-{
-    m_sbusRx.Begin();
+void SbusReceiver::init() {
+  impl->m_sbusRx.Begin();
 }
 
-void SbusReceiver::read()
-{
-    if (m_sbusRx.Read())
-    {
+void SbusReceiver::read() {
+  if (impl->m_sbusRx.Read()) {
+    /* Grab the received data */
+    impl->m_data = impl->m_sbusRx.data();
 
-        /* Grab the received data */
-        m_data = m_sbusRx.data();
-        
-        if (!m_data.lost_frame) {
-            lastDataReceiveTime = micros();
-        }
+    if (!impl->m_data.lost_frame) {
+      impl->lastDataReceiveTime = micros();
     }
+  }
 }
 
 int SbusReceiver::rcLost() {
-    uint32_t now = micros();
-    bool timedOut = (now - lastDataReceiveTime) > RC_TIMEOUT;
-    return timedOut ? 1 : 0;
+  uint32_t now = micros();
+  bool timedOut = (now - impl->lastDataReceiveTime) > impl->RC_TIMEOUT;
+  return timedOut ? 1 : 0;
 }
 
-double SbusReceiver::getChannelData(SbusReceiverChannels channel, double defaultValue = 0.0)
+double SbusReceiver::getChannelData(SbusReceiverChannels channel, double defaultValue)
 {
+    if (rcLost()) {
+        return defaultValue;
+    }
+
     int8_t channelNum = static_cast<int8_t>(channel);
 
-    if (channelNum >= m_data.NUM_CH)
+    if (channelNum >= impl->m_data.NUM_CH)
     {
         return defaultValue;
     }
 
-    return (m_data.ch[channelNum] - CHANNEL_DATA_ZERO) / CHANNEL_DATA_MAGNITUDE;
+    return (impl->m_data.ch[channelNum] - impl->CHANNEL_DATA_ZERO) / impl->CHANNEL_DATA_MAGNITUDE;
 }
 
 double SbusReceiver::getBlueSwitch()
