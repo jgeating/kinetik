@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <chrono>
 #include <thread>
+#include <atomic>
 
 // Temporary minimal implementation for testing
 void robotSetup() {

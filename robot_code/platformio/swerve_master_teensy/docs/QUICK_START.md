@@ -5,9 +5,11 @@
 ### Prerequisites Check
 ```bash
 # Check if tools are installed
-gcc --version          # Should show GCC version
+g++ --version          # Should show: g++.exe (Rev5, Built by MSYS2 project) 15.1.0
 platformio --version   # Should show PlatformIO version
 ```
+
+**✅ Status**: Both Teensy and Windows native builds working perfectly!
 
 ### Build and Run (5 minutes)
 ```bash
@@ -56,7 +58,7 @@ platformio run -e native
 
 void setup() {
     HAL::initialize();
-    
+
     if (HAL::imu->begin()) {
         Serial.println("IMU ready");
     }
@@ -73,10 +75,10 @@ void loop() {
 ```cpp
 void loop() {
     HAL::rcReceiver->update();
-    
+
     double leftStick = HAL::rcReceiver->getLeftVertical();
     bool signalLost = HAL::rcReceiver->isSignalLost();
-    
+
     if (!signalLost) {
         // Use RC input
         Serial.print("Left stick: ");
@@ -92,7 +94,7 @@ void sendMotorCommand(uint32_t motorId, float velocity) {
     msg.id = motorId;
     msg.len = 4;
     memcpy(msg.data, &velocity, sizeof(velocity));
-    
+
     HAL::canBus->write(msg);
 }
 ```
@@ -112,7 +114,7 @@ set PATH=%PATH%;C:\msys64\mingw64\bin
 - Use HAL interfaces instead
 
 **Error: `FlexCAN_T4.h not found` (in simulation)**
-- Normal for simulation build  
+- Normal for simulation build
 - Real hardware code is excluded in simulation
 
 ### Runtime Issues
