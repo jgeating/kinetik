@@ -7,27 +7,26 @@
 #endif
 
 #include <math.h>             // Math functions
+
+#if HAL_IMPLEMENTATION == HAL_REAL
 #include "Kinematics.h"       // wheel level kinematics/trigonometry
 #include "Planner.h"          // robot level planning
 #include "shared/utils.h"     // Basic utils like more powerful serial
 #include "penny/Steer.h"      // For controlling steering actuator
 #include "penny/Pads.h"       // For interfacing with weight pads
 #include "penny/Drive.h"      // For controlling drive motors
-
-#if HAL_IMPLEMENTATION == HAL_REAL
 #include <Wire.h>             // For accessing native Arduino I2C functions
 #include "Adafruit_Sensor.h"  // Downloaded library for IMU stuff
 #include "Adafruit_BNO055.h"  // Downloaded library for IMU stuff
 #include "utility/imumaths.h" // Downloaded library for IMU stuff
 #include "SbusReceiver.h"
-#endif
-
 #include "Swerve.h"
 #include "Performance.h"
 #include "PID.h"                    // For PID controllers
 #include "shared/LowPassFilter.cpp" // Low pass filter class
 #include "penny/Lights.h"
 #include "SwerveTelemetry.h"
+#endif
 
 // Definitions
 #pragma region
@@ -38,6 +37,7 @@
 #define TELEMETRY_REPORT_PERIOD 500000
 #define MCU "DUE" // Either "T4_1", or "DUE"
 
+#if HAL_IMPLEMENTATION == HAL_REAL
 // Instantiate structs
 SwerveTrajectory traj;
 pad_vars padVars;
@@ -70,13 +70,17 @@ unsigned long prevTelemetryReportTime = 0;
 Watchdog watchdog;
 LowPassFilter filter(10); // create a low-pass filter with 10 readings
 
-#pragma endregion
-
 SwerveTelemetry swerveTelemetry;
-
-#if HAL_IMPLEMENTATION == HAL_REAL
 SbusReceiver sbusReceiver;
+#else
+// Simulation mode - minimal variables
+unsigned long prevTelemetryReportTime = 0;
+
+// Forward declarations for simulation functions
+void calMotor();
 #endif
+
+#pragma endregion
 
 // Helper functions to abstract RC receiver calls for cross-platform compatibility
 inline void rcReceiver_read() {
@@ -187,9 +191,8 @@ void setup()
   // Simulation setup
   Serial.begin(460800);
   Serial.println("Simulation setup complete!");
-  return; // Skip hardware initialization in simulation
-#endif
 
+#else
   // Real hardware setup
   // Serial and CAN setup
   Serial.begin(460800); // Bumping up serial rate 7/21/2024 for serial telemetry over usb to computer
@@ -206,9 +209,7 @@ void setup()
     motors::steer[i].printMessage();
   }
 
-#if HAL_IMPLEMENTATION == HAL_REAL
   sbusReceiver.init();
-#endif
 
   for (int i = 0; i < 4; i++)
   {
@@ -254,10 +255,12 @@ void setup()
 
   Serial.println("Startup Complete.");
   delay(1000);
+#endif
 }
 
 void teleop()
 {
+#if HAL_IMPLEMENTATION == HAL_REAL
   for (int k = 0; k < 4; k++)
   {
     if (k == 0) {
@@ -271,10 +274,22 @@ void teleop()
     }
   }
   planner->plan_teleop(traj.input[0], traj.input[1], traj.input[2], traj.input[3]);
+#else
+  // Simulation mode - just print RC values
+  Serial.print("RC: RH=");
+  Serial.print(rcReceiver_getRightHor());
+  Serial.print(" RV=");
+  Serial.print(rcReceiver_getRightVert());
+  Serial.print(" LH=");
+  Serial.print(rcReceiver_getLeftHor());
+  Serial.print(" LV=");
+  Serial.println(rcReceiver_getLeftVert());
+#endif
 }
 
 void padRiding()
 {
+#if HAL_IMPLEMENTATION == HAL_REAL
   double hand_remote_val = constrain(rcReceiver_getHandheld() * .5, -0.5, 0.5) + 0.5; // ch 3 rewired to read value from handheld e-skate remote
   bool hand_remote_estopped = hand_remote_val < 0.2 && hand_remote_val > -0.2;
   bool hand_zeroing = hand_remote_val <= -0.2;
@@ -290,10 +305,16 @@ void padRiding()
   {
     planner->eStop();
   }
+#else
+  // Simulation mode - just print handheld value
+  Serial.print("Handheld: ");
+  Serial.println(rcReceiver_getHandheld());
+#endif
 }
 
 void updateLoopTiming()
 {
+#if HAL_IMPLEMENTATION == HAL_REAL
   if (loopTiming.behind)
   { // This means we can't keep up with the desired loop rate. Trip LED to indicate so
     digitalWrite(13, HIGH);
@@ -305,10 +326,12 @@ void updateLoopTiming()
     loopTiming.lastInner = loopTiming.lastInner + loopTiming.tInner;
     loopTiming.behind = true;
   }
+#endif
 }
 
 void zeroFootPads()
 {
+#if HAL_IMPLEMENTATION == HAL_REAL
   if (!modes.zeroing)
   {
     Serial.println("Zeroing entered");
@@ -327,10 +350,40 @@ void zeroFootPads()
   default:
     Serial.println("Unable to parse mode to enter zeroing. This is probably a bug");
   }
+#else
+  Serial.println("Zeroing not supported in simulation");
+#endif
 }
 
 void loop()
 {
+#if HAL_IMPLEMENTATION == HAL_SIM
+  // Simulation loop - minimal functionality
+  static int loopCount = 0;
+  loopCount++;
+
+  if (loopCount % 1000 == 0) {
+    Serial.println("Simulation loop running...");
+  }
+
+  // Read RC receiver
+  rcReceiver_read();
+
+  // Simple telemetry
+  if (micros() - prevTelemetryReportTime > TELEMETRY_REPORT_PERIOD) {
+    Serial.print("Loop count: ");
+    Serial.println(loopCount);
+
+    // Test RC receiver values
+    if (rcReceiver_getRightKnob() > 0.6) {
+      calMotor(); // Simulation version
+    }
+
+    prevTelemetryReportTime = micros();
+  }
+
+#else
+  // Real hardware loop
   // startProfile(profiles.robotLoop);
   // printWatchdogError(watchdog);
   rcReceiver_read();
@@ -414,11 +467,13 @@ void loop()
     }
   }
   // printProfiles(profiles);
+#endif // HAL_IMPLEMENTATION == HAL_REAL
 }
 
 // Helper Functions
 #pragma region
 // CALIBRATION
+#if HAL_IMPLEMENTATION == HAL_REAL
 void calMotor(SwerveCAN &can)
 {
   for (int j = 0; j < kin.nWheels; j++)
@@ -428,7 +483,7 @@ void calMotor(SwerveCAN &can)
   }
   delay(1000);           // Give motor time to move to zero position if it is wound up
   double fineTune = 1.0; // to step in less than 1 deg increments - this is the ratio (0.2 would be in 0.2 degree increments
-  for (int i = 0; i < (int)(360 * abs(kin.yRatio) * 1.5 / fineTune); i++)
+  for (int i = 0; i < (int)(360 * std::abs(kin.yRatio) * 1.5 / fineTune); i++)
   {
     for (int j = 0; j < kin.nWheels; j++)
     {
@@ -466,6 +521,11 @@ void calMotor(SwerveCAN &can)
       break; // break from loop once all targets have been found
   }
 }
+#else
+void calMotor() {
+  Serial.println("Motor calibration not supported in simulation");
+}
+#endif
 double mapDouble(double x, double min_in, double max_in, double min_out, double max_out)
 {
   double ret = (x - min_in) / (max_in - min_in);

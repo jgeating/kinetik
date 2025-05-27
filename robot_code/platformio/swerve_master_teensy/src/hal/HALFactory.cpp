@@ -4,6 +4,10 @@
 #include <iostream>
 #include <iomanip>
 #include <cstring>
+#include <chrono>
+#include <unordered_map>
+#include <vector>
+#include <thread>
 
 // For simulation, create simple mock implementations
 class MockCANBus : public ICANBus {
@@ -105,6 +109,166 @@ public:
     void setTimeout(unsigned long timeout) override {}
 };
 
+class MockGPIO : public IGPIO {
+private:
+    std::unordered_map<uint8_t, PinMode> pinModes;
+    std::unordered_map<uint8_t, PinState> pinStates;
+
+public:
+    void pinMode(uint8_t pin, PinMode mode) override {
+        pinModes[pin] = mode;
+        std::cout << "GPIO: Set pin " << (int)pin << " to mode " << (int)mode << std::endl;
+    }
+
+    void digitalWrite(uint8_t pin, PinState state) override {
+        pinStates[pin] = state;
+        std::cout << "GPIO: Set pin " << (int)pin << " to " << (state == PinState::HAL_HIGH ? "HIGH" : "LOW") << std::endl;
+    }
+
+    PinState digitalRead(uint8_t pin) override {
+        auto it = pinStates.find(pin);
+        if (it != pinStates.end()) {
+            return it->second;
+        }
+        return PinState::HAL_LOW; // Default to LOW
+    }
+
+    bool begin() override { return true; }
+    bool isReady() const override { return true; }
+};
+
+class MockADC : public IADC {
+private:
+    uint8_t resolution = 12;
+
+public:
+    uint16_t analogRead(uint8_t pin) override {
+        // Return a simulated value based on pin number
+        uint16_t maxVal = getMaxValue();
+        return (pin * 100) % maxVal; // Simple simulation
+    }
+
+    void setResolution(uint8_t bits) override {
+        resolution = bits;
+        std::cout << "ADC: Set resolution to " << (int)bits << " bits" << std::endl;
+    }
+
+    uint8_t getResolution() const override { return resolution; }
+
+    uint16_t getMaxValue() const override {
+        return (1 << resolution) - 1;
+    }
+
+    bool begin() override { return true; }
+    bool isReady() const override { return true; }
+
+    float toVoltage(uint16_t reading, float referenceVoltage) const override {
+        return (float)reading * referenceVoltage / getMaxValue();
+    }
+};
+
+class MockTimer : public ITimer {
+private:
+    std::chrono::steady_clock::time_point startTime;
+
+public:
+    MockTimer() : startTime(std::chrono::steady_clock::now()) {}
+
+    uint32_t micros() override {
+        auto now = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime);
+        return static_cast<uint32_t>(duration.count());
+    }
+
+    uint32_t millis() override {
+        auto now = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime);
+        return static_cast<uint32_t>(duration.count());
+    }
+
+    void delay(uint32_t ms) override {
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    }
+
+    void delayMicroseconds(uint32_t us) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(us));
+    }
+
+    bool begin() override { return true; }
+    bool isReady() const override { return true; }
+
+    uint64_t getHighResTime() override {
+        auto now = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime);
+        return static_cast<uint64_t>(duration.count());
+    }
+
+    void reset() override {
+        startTime = std::chrono::steady_clock::now();
+    }
+};
+
+class MockWire : public IWire {
+private:
+    uint8_t currentAddress = 0;
+    std::vector<uint8_t> txBuffer;
+    std::vector<uint8_t> rxBuffer;
+
+public:
+    bool begin() override { return true; }
+    bool begin(uint8_t address) override { return true; }
+    void setClock(uint32_t frequency) override {}
+
+    void beginTransmission(uint8_t address) override {
+        currentAddress = address;
+        txBuffer.clear();
+    }
+
+    uint8_t endTransmission(bool stop) override {
+        std::cout << "I2C: Sent " << txBuffer.size() << " bytes to address 0x"
+                  << std::hex << (int)currentAddress << std::dec << std::endl;
+        txBuffer.clear();
+        return 0; // Success
+    }
+
+    size_t write(uint8_t data) override {
+        txBuffer.push_back(data);
+        return 1;
+    }
+
+    size_t write(const uint8_t* data, size_t length) override {
+        for (size_t i = 0; i < length; i++) {
+            txBuffer.push_back(data[i]);
+        }
+        return length;
+    }
+
+    uint8_t requestFrom(uint8_t address, uint8_t quantity, bool stop) override {
+        // Simulate receiving data
+        rxBuffer.clear();
+        for (uint8_t i = 0; i < quantity; i++) {
+            rxBuffer.push_back(i); // Simple test data
+        }
+        return quantity;
+    }
+
+    int available() override { return rxBuffer.size(); }
+
+    int read() override {
+        if (rxBuffer.empty()) return -1;
+        uint8_t data = rxBuffer.front();
+        rxBuffer.erase(rxBuffer.begin());
+        return data;
+    }
+
+    int peek() override {
+        if (rxBuffer.empty()) return -1;
+        return rxBuffer.front();
+    }
+
+    bool isReady() const override { return true; }
+};
+
 #endif
 
 // Static member initialization
@@ -116,6 +280,10 @@ namespace HAL {
     std::unique_ptr<IIMU> imu;
     std::unique_ptr<IRCReceiver> rcReceiver;
     std::unique_ptr<ISerial> serial;
+    std::unique_ptr<IGPIO> gpio;
+    std::unique_ptr<IADC> adc;
+    std::unique_ptr<ITimer> timer;
+    std::unique_ptr<IWire> wire;
 
     void initialize() {
         HALFactory::initialize();
@@ -124,6 +292,10 @@ namespace HAL {
         imu = HALFactory::createIMU();
         rcReceiver = HALFactory::createRCReceiver();
         serial = HALFactory::createSerial();
+        gpio = HALFactory::createGPIO();
+        adc = HALFactory::createADC();
+        timer = HALFactory::createTimer();
+        wire = HALFactory::createWire();
     }
 
     void shutdown() {
@@ -131,6 +303,10 @@ namespace HAL {
         imu.reset();
         rcReceiver.reset();
         serial.reset();
+        gpio.reset();
+        adc.reset();
+        timer.reset();
+        wire.reset();
 
         HALFactory::shutdown();
     }
@@ -170,6 +346,42 @@ std::unique_ptr<ISerial> HALFactory::createSerial(int portNumber) {
     return nullptr;
 #elif HAL_IMPLEMENTATION == HAL_SIM
     return std::make_unique<MockSerial>();
+#endif
+}
+
+std::unique_ptr<IGPIO> HALFactory::createGPIO() {
+#if HAL_IMPLEMENTATION == HAL_REAL
+    // TODO: Implement real GPIO
+    return nullptr;
+#elif HAL_IMPLEMENTATION == HAL_SIM
+    return std::make_unique<MockGPIO>();
+#endif
+}
+
+std::unique_ptr<IADC> HALFactory::createADC() {
+#if HAL_IMPLEMENTATION == HAL_REAL
+    // TODO: Implement real ADC
+    return nullptr;
+#elif HAL_IMPLEMENTATION == HAL_SIM
+    return std::make_unique<MockADC>();
+#endif
+}
+
+std::unique_ptr<ITimer> HALFactory::createTimer() {
+#if HAL_IMPLEMENTATION == HAL_REAL
+    // TODO: Implement real Timer
+    return nullptr;
+#elif HAL_IMPLEMENTATION == HAL_SIM
+    return std::make_unique<MockTimer>();
+#endif
+}
+
+std::unique_ptr<IWire> HALFactory::createWire(int busNumber) {
+#if HAL_IMPLEMENTATION == HAL_REAL
+    // TODO: Implement real Wire
+    return nullptr;
+#elif HAL_IMPLEMENTATION == HAL_SIM
+    return std::make_unique<MockWire>();
 #endif
 }
 

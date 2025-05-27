@@ -23,12 +23,17 @@
 typedef uint8_t byte;
 typedef bool boolean;
 
-// Arduino constants
-#define HIGH 1
-#define LOW 0
-#define INPUT 0
-#define OUTPUT 1
-#define INPUT_PULLUP 2
+// Arduino constants for simulation
+const int ARDUINO_HIGH = 1;
+const int ARDUINO_LOW = 0;
+const int ARDUINO_INPUT = 0;
+const int ARDUINO_OUTPUT = 1;
+const int ARDUINO_INPUT_PULLUP = 2;
+
+// Define Arduino macros for compatibility (only in simulation)
+// Note: These may conflict with HAL enums, so be careful with includes
+#define HIGH ARDUINO_HIGH
+#define LOW ARDUINO_LOW
 
 // Math constants
 #ifndef PI
@@ -68,13 +73,7 @@ inline double sqrt(double x) {
     return std::sqrt(x);
 }
 
-inline double abs(double x) {
-    return std::abs(x);
-}
-
-inline long abs(long x) {
-    return std::abs(x);
-}
+// abs() functions removed to avoid conflicts with std::abs
 
 inline double sin(double x) {
     return std::sin(x);
@@ -153,32 +152,55 @@ inline void delayMicroseconds(unsigned long us) {
     std::this_thread::sleep_for(std::chrono::microseconds(us));
 }
 
-// Mock Arduino functions that don't apply in simulation
-inline void pinMode(int pin, int mode) {
-    // No-op in simulation
-}
+// Forward declarations for HAL-based Arduino functions
+// These will be implemented in ArduinoCompat.cpp to use HAL interfaces
+void pinMode(int pin, int mode);
+void digitalWrite(int pin, int value);
+int digitalRead(int pin);
+int analogRead(int pin);
+void analogWrite(int pin, int value);
+void analogReadResolution(int bits);
+unsigned long micros();
+unsigned long millis();
 
-inline void digitalWrite(int pin, int value) {
-    // No-op in simulation
-}
+// Serial class for simulation
+#include <iostream>
+class SerialClass {
+public:
+    void begin(unsigned long baud) {
+        std::cout << "Serial initialized at " << baud << " baud" << std::endl;
+    }
 
-inline int digitalRead(int pin) {
-    // Return default value in simulation
-    return LOW;
-}
+    void print(const char* str) {
+        std::cout << str;
+    }
 
-inline int analogRead(int pin) {
-    // Return default value in simulation
-    return 0;
-}
+    void print(int val) {
+        std::cout << val;
+    }
 
-inline void analogWrite(int pin, int value) {
-    // No-op in simulation
-}
+    void print(double val) {
+        std::cout << val;
+    }
 
-inline void analogReadResolution(int bits) {
-    // No-op in simulation
-}
+    void println(const char* str) {
+        std::cout << str << std::endl;
+    }
+
+    void println(int val) {
+        std::cout << val << std::endl;
+    }
+
+    void println(double val) {
+        std::cout << val << std::endl;
+    }
+
+    void println() {
+        std::cout << std::endl;
+    }
+};
+
+extern SerialClass Serial;
 
 // String class compatibility
 class String {
