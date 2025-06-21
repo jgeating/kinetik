@@ -4,26 +4,46 @@
 #include <FlexCAN_T4.h>
 #include "Constants.h"
 
-class ODrive {
+// Base class for ODrive motors
+class ODriveBase {
+public:
+  virtual void setPosition(float position) = 0;
+  virtual void setAbsolutePosition(float position) = 0;
+  virtual void setVelocity(float revPerSec) = 0;
+  virtual void disable() = 0;
+  virtual void enableWithClosedLoop() = 0;
+  virtual void enablePrintOnWrite() = 0;
+  virtual void disablePrintOnWrite() = 0;
+  virtual void printMessage() = 0;
+  virtual void setVelocityControlMode() = 0;
+  virtual void setPositionControlMode() = 0;
+  virtual void getEncoderValues(float& position, float& velocity) = 0;
+  virtual float getEncoderPosition() = 0;
+  virtual float getEncoderVelocity() = 0;
+  virtual ~ODriveBase() = default;
+};
+
+template<CAN_DEV_TABLE _bus>
+class ODrive : public ODriveBase {
 
 public:
-  ODrive(const FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16>& can, const int canId);
-  void setPosition(float position);
-  void setAbsolutePosition(float position);
-  void setVelocity(float revPerSec);
-  void disable();
-  void enableWithClosedLoop();
-  void enablePrintOnWrite();
-  void disablePrintOnWrite();
-  void printMessage();
-  void setVelocityControlMode();
-  void setPositionControlMode();
-  void getEncoderValues(float& position, float& velocity);
-  float getEncoderPosition();
-  float getEncoderVelocity();
+  ODrive(const FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16>& can, const int canId);
+  void setPosition(float position) override;
+  void setAbsolutePosition(float position) override;
+  void setVelocity(float revPerSec) override;
+  void disable() override;
+  void enableWithClosedLoop() override;
+  void enablePrintOnWrite() override;
+  void disablePrintOnWrite() override;
+  void printMessage() override;
+  void setVelocityControlMode() override;
+  void setPositionControlMode() override;
+  void getEncoderValues(float& position, float& velocity) override;
+  float getEncoderPosition() override;
+  float getEncoderVelocity() override;
 
 private:
-  const FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16>& m_can;
+  const FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16>& m_can;
   const int m_canId;
   CAN_message_t m_msg;
   CAN_message_t m_encoderEstimateMsg;
@@ -34,6 +54,133 @@ private:
   void setControlMode(uint32_t controlMode, uint32_t inputMode);
 };
 
+// Template implementation
+template<CAN_DEV_TABLE _bus>
+ODrive<_bus>::ODrive(const FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16>& can, const int canId)
+  : m_can{ can }, m_canId{ canId } {
+  m_msg.flags.extended = false;
+  m_encoderEstimateMsg.flags.extended = false;
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::setAbsolutePosition(float position) {
+  m_msg.id = m_canId << 5 | 0x19;
+  m_msg.len = 4;
+  memcpy(m_msg.buf, &position, sizeof(position));
+  write();
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::setPosition(float position) {
+  float torqueFF = 0.0;
+
+  m_msg.id = m_canId << 5 | 0x0c;
+  m_msg.len = 8;
+  memcpy(m_msg.buf, &position, sizeof(position));
+  memcpy(m_msg.buf + sizeof(position), &torqueFF, sizeof(torqueFF));
+  write();
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::setVelocity(float revPerSec) {
+  float torqueFF = 0.0;
+
+  m_msg.id = m_canId << 5 | 0x0d;
+  m_msg.len = 8;
+  memcpy(m_msg.buf, &revPerSec, sizeof(revPerSec));
+  memcpy(m_msg.buf + sizeof(revPerSec), &torqueFF, sizeof(torqueFF));
+  write();
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::setAxisState(uint32_t state) {
+  m_msg.id = m_canId << 5 | 0x07;
+  m_msg.len = 4;
+  memcpy(m_msg.buf, &state, sizeof(state));
+  write();
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::disable() {
+  setAxisState(1);
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::enableWithClosedLoop() {
+  setAxisState(8);
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::enablePrintOnWrite() {
+  m_printMessageOnWrite = true;
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::disablePrintOnWrite() {
+  m_printMessageOnWrite = false;
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::printMessage() {
+  for (uint8_t i = 0; i < m_msg.len; i++) {
+    Serial.print(m_msg.buf[i], HEX);
+    if (i < m_msg.len - 1) {
+      Serial.print(", ");
+    } else {
+      Serial.println();
+    }
+  }
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::write() {
+  if (m_printMessageOnWrite) {
+    printMessage();
+  }
+  m_can.write(m_msg);
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::setControlMode(uint32_t controlMode, uint32_t inputMode) {
+  m_msg.id = m_canId << 5 | 0x0b;
+  m_msg.len = 8;
+  memcpy(m_msg.buf, &controlMode, sizeof(controlMode));
+  memcpy(m_msg.buf + sizeof(controlMode), &inputMode, sizeof(inputMode));
+  write();
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::setPositionControlMode() {
+  setControlMode(3, 3);
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::setVelocityControlMode() {
+  setControlMode(2, 2);
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::getEncoderValues(float& position, float& velocity) {
+  m_encoderEstimateMsg.id = m_canId << 5 | 0x09;
+  m_encoderEstimateMsg.len = 8;
+  m_can.read(m_encoderEstimateMsg);
+  memcpy(&position, m_encoderEstimateMsg.buf, sizeof(position));
+  memcpy(&velocity, m_encoderEstimateMsg.buf + sizeof(position), sizeof(velocity));
+}
+
+template<CAN_DEV_TABLE _bus>
+float ODrive<_bus>::getEncoderVelocity() {
+  float position, velocity;
+  getEncoderValues(position, velocity);
+  return velocity;
+}
+
+template<CAN_DEV_TABLE _bus>
+float ODrive<_bus>::getEncoderPosition() {
+  float position, velocity;
+  getEncoderValues(position, velocity);
+  return position;
+}
 
 /********************************************************************/
 #endif // __ODRIVE_H

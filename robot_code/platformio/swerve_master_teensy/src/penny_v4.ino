@@ -1,0 +1,155 @@
+#include <math.h>
+#include <FlexCAN_T4.h>
+#include "Constants.h"
+#include "ODrive.h"
+#include "Vesc.h"
+#include "SbusReceiver.h"
+#include "shared/utils.h"
+
+// CAN Bus setup - Front modules on CAN3, Back modules on CAN1
+FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16> frontCanBus;   // CAN3 for front modules (both steering and drive)
+FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> backCanBus;      // CAN1 for back modules (both steering and drive)
+
+// Simple swerve module structure using base class pointers
+struct SwerveModule {
+  ODriveBase* steerMotor;
+  VescBase* driveMotor;
+  String name;
+
+  SwerveModule(ODriveBase* steer, VescBase* drive, const String& moduleName)
+    : steerMotor(steer), driveMotor(drive), name(moduleName) {}
+};
+
+// Create individual motor instances
+ODrive<CANBUS> frontRightSteer(frontCanBus, 0);   // Front Right steering
+Vesc<CANBUS> frontRightDrive(frontCanBus, 10);    // Front Right drive
+ODrive<CAN1> backRightSteer(backCanBus, 1);       // Back Right steering
+Vesc<CAN1> backRightDrive(backCanBus, 11);        // Back Right drive
+ODrive<CAN1> backLeftSteer(backCanBus, 2);        // Back Left steering
+Vesc<CAN1> backLeftDrive(backCanBus, 12);         // Back Left drive
+ODrive<CANBUS> frontLeftSteer(frontCanBus, 3);    // Front Left steering
+Vesc<CANBUS> frontLeftDrive(frontCanBus, 13);     // Front Left drive
+
+// Create array of all 4 swerve modules
+SwerveModule allModules[4] = {
+  SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right"),  // [0]
+  SwerveModule(&backRightSteer, &backRightDrive, "Back Right"),     // [1]
+  SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left"),        // [2]
+  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left")      // [3]
+};
+
+// SBUS Receiver
+SbusReceiver sbusReceiver;
+
+// Timing
+unsigned long lastControlUpdate = 0;
+const unsigned long CONTROL_PERIOD = 20000; // 20ms = 50Hz
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("Penny V4 - Swerve Drive with ODrive Steering and VESC Drive");
+
+  // Initialize CAN buses
+  frontCanBus.begin();
+  frontCanBus.setBaudRate(1000000);
+
+  backCanBus.begin();
+  backCanBus.setBaudRate(1000000);
+  delay(1000);
+
+  // Initialize SBUS receiver
+  sbusReceiver.init();
+
+  // Configure ODrive motors for position control
+  for (int i = 0; i < 4; i++) {
+    allModules[i].steerMotor->setPositionControlMode();
+    allModules[i].steerMotor->enableWithClosedLoop();
+    delay(100);
+  }
+
+  Serial.println("Setup complete. Ready for control.");
+  Serial.println("Left stick controls swerve modules:");
+  Serial.println("- Stick direction sets steering angle");
+  Serial.println("- Stick magnitude sets drive velocity");
+}
+
+void loop() {
+  // Read SBUS data
+  sbusReceiver.read();
+
+  unsigned long currentTime = micros();
+
+  // Control loop at 50Hz
+  if (currentTime - lastControlUpdate >= CONTROL_PERIOD) {
+    lastControlUpdate = currentTime;
+
+    // Check if RC is connected
+    if (sbusReceiver.rcLost()) {
+      // Stop all motors if RC is lost
+      stopAllMotors();
+      Serial.println("RC Lost - Motors stopped");
+      return;
+    }
+
+    // Control all swerve modules
+    controlSwerveModules();
+  }
+}
+
+void controlSwerveModules() {
+  // Read left stick values
+  double leftStickX = sbusReceiver.getLeftHor();  // -1.0 to 1.0
+  double leftStickY = sbusReceiver.getLeftVert(); // -1.0 to 1.0
+
+  // Calculate stick magnitude and angle
+  double stickMagnitude = sqrt(leftStickX * leftStickX + leftStickY * leftStickY);
+  stickMagnitude = constrain(stickMagnitude, 0.0, 1.0);
+
+  // Calculate angle in radians (0 = forward, positive = clockwise)
+  double stickAngle = atan2(leftStickX, leftStickY);
+
+  // Apply deadzone
+  const double DEADZONE = 0.1;
+  if (stickMagnitude < DEADZONE) {
+    stickMagnitude = 0.0;
+  } else {
+    // Scale magnitude to remove deadzone
+    stickMagnitude = (stickMagnitude - DEADZONE) / (1.0 - DEADZONE);
+  }
+
+  // Convert stick angle to position command for steering motors
+  // ODrive position is in revolutions, so convert radians to revolutions
+  double steerPosition = stickAngle / (2.0 * PI);
+
+  // Convert stick magnitude to velocity for drive motors
+  // Scale magnitude to reasonable velocity (adjust as needed)
+  double maxVelocity = 5.0; // m/s - adjust based on your robot's capabilities
+  double driveVelocity = stickMagnitude * maxVelocity;
+
+  // Apply commands to all modules
+  for (int i = 0; i < 4; i++) {
+    allModules[i].steerMotor->setPosition(steerPosition);
+    allModules[i].driveMotor->setVelocity(driveVelocity);
+    delayMicroseconds(100);
+  }
+
+  // Debug output every 1 second
+  static unsigned long lastDebugTime = 0;
+  unsigned long currentTime = micros();
+  if (currentTime - lastDebugTime >= 1000000) {
+    lastDebugTime = currentTime;
+    Serial.print("Stick X: "); Serial.print(leftStickX, 3);
+    Serial.print(", Y: "); Serial.print(leftStickY, 3);
+    Serial.print(", Mag: "); Serial.print(stickMagnitude, 3);
+    Serial.print(", Angle: "); Serial.println(stickAngle * 180.0 / PI, 1);
+  }
+}
+
+void stopAllMotors() {
+  // Stop all drive motors
+  for (int i = 0; i < 4; i++) {
+    allModules[i].driveMotor->setVelocity(0.0);
+  }
+}
