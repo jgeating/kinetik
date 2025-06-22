@@ -109,7 +109,7 @@ struct LoopTiming
 struct SwerveCAN
 {
   byte cTxData0[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  int idd = 1 || CAN_PACKET_SET_RPM << 8; // Drive ID
+  int idd = 1 | CAN_PACKET_SET_RPM << 8; // Drive ID
   bool ext = true;
   int len = 4;
   uint32_t pos = 0;
@@ -122,7 +122,7 @@ struct SwerveCAN
   int driveCanDelay = 100; // # of microseconds to delay sending drive CAN for
   // CAN stuff for steering motors
   byte cTxData1[8] = {0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  int idy = 1 || CAN_PACKET_SET_POS << 8; // Steer ID
+  int idy = 1 | CAN_PACKET_SET_POS << 8; // Steer ID
   unsigned char buf[8];
   int32_t ang = 0;
   int steerCanDelay = 100; // # of microseconds to delay sending steering CAN for
@@ -169,8 +169,8 @@ namespace motors
   static FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16> canBus1;
   // front right, back right, back left, front left
   static RMD_M6 steer[] = { RMD_M6{canBus1, 0}, RMD_M6{canBus1, 1}, RMD_M6{canBus1, 2}, RMD_M6{canBus1, 3} };
-  // static ODrive steer[] = { ODrive{Can0, 0}, ODrive{Can0, 2}, ODrive{Can0, 4}, ODrive{Can0, 6} };
-  static ODrive drive[] = { ODrive{canBus1, 1}, ODrive{canBus1, 3}, ODrive{canBus1, 5}, ODrive{canBus1, 7} };
+  // static ODrive<CANBUS> steer[] = { ODrive<CANBUS>{canBus1, 0}, ODrive<CANBUS>{canBus1, 2}, ODrive<CANBUS>{canBus1, 4}, ODrive<CANBUS>{canBus1, 6} };
+  static ODrive<CANBUS> drive[] = { ODrive<CANBUS>{canBus1, 1}, ODrive<CANBUS>{canBus1, 3}, ODrive<CANBUS>{canBus1, 5}, ODrive<CANBUS>{canBus1, 7} };
 }
 
 void printWatchdogError(Watchdog &watchdog);

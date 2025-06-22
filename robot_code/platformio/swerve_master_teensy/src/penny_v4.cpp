@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <math.h>
 #include <FlexCAN_T4.h>
 #include "Constants.h"
@@ -5,6 +6,10 @@
 #include "Vesc.h"
 #include "SbusReceiver.h"
 #include "shared/utils.h"
+
+// Function declarations
+void controlSwerveModules();
+void stopAllMotors();
 
 // CAN Bus setup - Front modules on CAN3, Back modules on CAN1
 FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16> frontCanBus;   // CAN3 for front modules (both steering and drive)

@@ -27,7 +27,7 @@ template<CAN_DEV_TABLE _bus>
 class ODrive : public ODriveBase {
 
 public:
-  ODrive(const FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16>& can, const int canId);
+  ODrive(FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16>& can, const int canId);
   void setPosition(float position) override;
   void setAbsolutePosition(float position) override;
   void setVelocity(float revPerSec) override;
@@ -43,7 +43,7 @@ public:
   float getEncoderVelocity() override;
 
 private:
-  const FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16>& m_can;
+  FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16>& m_can;
   const int m_canId;
   CAN_message_t m_msg;
   CAN_message_t m_encoderEstimateMsg;
@@ -56,7 +56,7 @@ private:
 
 // Template implementation
 template<CAN_DEV_TABLE _bus>
-ODrive<_bus>::ODrive(const FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16>& can, const int canId)
+ODrive<_bus>::ODrive(FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16>& can, const int canId)
   : m_can{ can }, m_canId{ canId } {
   m_msg.flags.extended = false;
   m_encoderEstimateMsg.flags.extended = false;
