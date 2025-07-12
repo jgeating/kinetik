@@ -12,7 +12,7 @@ void controlSwerveModules();
 void stopAllMotors();
 
 // CAN Bus setup - Front modules on CAN3, Back modules on CAN1
-FlexCAN_T4<CANBUS, RX_SIZE_256, TX_SIZE_16> frontCanBus;   // CAN3 for front modules (both steering and drive)
+FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> frontCanBus;   // CAN3 for front modules (both steering and drive)
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> backCanBus;      // CAN1 for back modules (both steering and drive)
 
 // Simple swerve module structure using base class pointers
@@ -26,21 +26,23 @@ struct SwerveModule {
 };
 
 // Create individual motor instances
-ODrive<CANBUS> frontRightSteer(frontCanBus, 0);   // Front Right steering
-Vesc<CANBUS> frontRightDrive(frontCanBus, 10);    // Front Right drive
+ODrive<CAN2> frontRightSteer(frontCanBus, 0);   // Front Right steering
+Vesc<CAN2> frontRightDrive(frontCanBus, 10);    // Front Right drive
 ODrive<CAN1> backRightSteer(backCanBus, 1);       // Back Right steering
 Vesc<CAN1> backRightDrive(backCanBus, 11);        // Back Right drive
 ODrive<CAN1> backLeftSteer(backCanBus, 2);        // Back Left steering
 Vesc<CAN1> backLeftDrive(backCanBus, 12);         // Back Left drive
-ODrive<CANBUS> frontLeftSteer(frontCanBus, 3);    // Front Left steering
-Vesc<CANBUS> frontLeftDrive(frontCanBus, 13);     // Front Left drive
+ODrive<CAN2> frontLeftSteer(frontCanBus, 3);    // Front Left steering
+Vesc<CAN2> frontLeftDrive(frontCanBus, 13);     // Front Left drive
 
 // Create array of all 4 swerve modules
-SwerveModule allModules[4] = {
+const size_t NUM_MODULES = 4;
+
+SwerveModule allModules[NUM_MODULES] = {
   SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right"),  // [0]
   SwerveModule(&backRightSteer, &backRightDrive, "Back Right"),     // [1]
   SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left"),        // [2]
-  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left")      // [3]
+  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left"),      // [3]
 };
 
 // SBUS Receiver
@@ -68,7 +70,7 @@ void setup() {
   sbusReceiver.init();
 
   // Configure ODrive motors for position control
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < NUM_MODULES; i++) {
     allModules[i].steerMotor->setPositionControlMode();
     allModules[i].steerMotor->enableWithClosedLoop();
     delay(100);
@@ -103,25 +105,26 @@ void loop() {
   }
 }
 
+double stickAngle = 0.0;
+const double STEERING_DEADZONE = 0.1;
+const double MAX_VELOCITY = 2.0; // m/s - adjust based on your robot's capabilities
+
 void controlSwerveModules() {
   // Read left stick values
   double leftStickX = sbusReceiver.getLeftHor();  // -1.0 to 1.0
   double leftStickY = sbusReceiver.getLeftVert(); // -1.0 to 1.0
+  double rightStickX = sbusReceiver.getRightHor();  // -1.0 to 1.0
+  double rightStickY = sbusReceiver.getRightVert(); // -1.0 to 1.0
 
   // Calculate stick magnitude and angle
-  double stickMagnitude = sqrt(leftStickX * leftStickX + leftStickY * leftStickY);
-  stickMagnitude = constrain(stickMagnitude, 0.0, 1.0);
-
+  double speed = constrain((leftStickY + 1.0) / 2.0, 0.0, 1.0);
+  
   // Calculate angle in radians (0 = forward, positive = clockwise)
-  double stickAngle = atan2(leftStickX, leftStickY);
+  double nextStickAngle = atan2(rightStickX, rightStickY);
+  double stickAngleMagnitude = sqrt(rightStickX * rightStickX + rightStickY * rightStickY);
 
-  // Apply deadzone
-  const double DEADZONE = 0.1;
-  if (stickMagnitude < DEADZONE) {
-    stickMagnitude = 0.0;
-  } else {
-    // Scale magnitude to remove deadzone
-    stickMagnitude = (stickMagnitude - DEADZONE) / (1.0 - DEADZONE);
+  if (stickAngleMagnitude > STEERING_DEADZONE) {
+    stickAngle = nextStickAngle;
   }
 
   // Convert stick angle to position command for steering motors
@@ -130,14 +133,19 @@ void controlSwerveModules() {
 
   // Convert stick magnitude to velocity for drive motors
   // Scale magnitude to reasonable velocity (adjust as needed)
-  double maxVelocity = 5.0; // m/s - adjust based on your robot's capabilities
-  double driveVelocity = stickMagnitude * maxVelocity;
+  double driveVelocity = speed * MAX_VELOCITY;
 
+  double redSwitch = sbusReceiver.getRedSwitch();
+  bool disableTurning = redSwitch < -0.5;
+  bool disableDriving = redSwitch < 0.5;
+  
   // Apply commands to all modules
-  for (int i = 0; i < 4; i++) {
-    allModules[i].steerMotor->setPosition(steerPosition);
-    allModules[i].driveMotor->setVelocity(driveVelocity);
-    delayMicroseconds(100);
+  for (int i = 0; i < NUM_MODULES; i++) {
+    if (!disableTurning) {
+      allModules[i].steerMotor->setPosition(steerPosition);
+    }
+    allModules[i].driveMotor->setVelocity(disableDriving ? 0 : driveVelocity);
+    delayMicroseconds(400);
   }
 
   // Debug output every 1 second
@@ -145,16 +153,24 @@ void controlSwerveModules() {
   unsigned long currentTime = micros();
   if (currentTime - lastDebugTime >= 1000000) {
     lastDebugTime = currentTime;
-    Serial.print("Stick X: "); Serial.print(leftStickX, 3);
-    Serial.print(", Y: "); Serial.print(leftStickY, 3);
-    Serial.print(", Mag: "); Serial.print(stickMagnitude, 3);
-    Serial.print(", Angle: "); Serial.println(stickAngle * 180.0 / PI, 1);
+    Serial.print("Right Stick X: "); 
+    Serial.print(rightStickX, 3);
+    Serial.print("Right Stick Y: "); 
+    Serial.print(rightStickY, 3);
+    Serial.print(", Left Stick Y: "); 
+    Serial.print(leftStickY, 3);
+    Serial.print(", Angle: ");
+    Serial.println(stickAngle * 180.0 / PI, 1);
+    Serial.print(", Velocity: "); 
+    Serial.print(driveVelocity, 3);
+    Serial.print(", Red Switch: ");
+    Serial.println(redSwitch);
   }
 }
 
 void stopAllMotors() {
   // Stop all drive motors
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < NUM_MODULES; i++) {
     allModules[i].driveMotor->setVelocity(0.0);
   }
 }
