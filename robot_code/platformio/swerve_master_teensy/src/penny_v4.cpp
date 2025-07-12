@@ -6,6 +6,7 @@
 #include "Vesc.h"
 #include "SbusReceiver.h"
 #include "shared/utils.h"
+#include "SlewRateLimiter.h"
 
 // Function declarations
 void controlSwerveModules();
@@ -45,8 +46,8 @@ SwerveModule allModules[NUM_MODULES] = {
   SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left"),      // [3]
 };
 
-// SBUS Receiver
 SbusReceiver sbusReceiver;
+SlewRateLimiter steerLimiter(PI * 4);
 
 // Timing
 unsigned long lastControlUpdate = 0;
@@ -127,10 +128,6 @@ void controlSwerveModules() {
     stickAngle = nextStickAngle;
   }
 
-  // Convert stick angle to position command for steering motors
-  // ODrive position is in revolutions, so convert radians to revolutions
-  double steerPosition = stickAngle / (2.0 * PI);
-
   // Convert stick magnitude to velocity for drive motors
   // Scale magnitude to reasonable velocity (adjust as needed)
   double driveVelocity = speed * MAX_VELOCITY;
@@ -139,10 +136,16 @@ void controlSwerveModules() {
   bool disableTurning = redSwitch < -0.5;
   bool disableDriving = redSwitch < 0.5;
   
+  double slewedstickAngle = steerLimiter.calculate(stickAngle);
+  // Convert stick angle to position command for steering motors
+  // ODrive position is in revolutions, so convert radians to revolutions
+  double slewedSteerPosition = slewedstickAngle / (2.0 * PI);
+
+
   // Apply commands to all modules
   for (int i = 0; i < NUM_MODULES; i++) {
     if (!disableTurning) {
-      allModules[i].steerMotor->setPosition(steerPosition);
+      allModules[i].steerMotor->setPosition(slewedSteerPosition);
     }
     allModules[i].driveMotor->setVelocity(disableDriving ? 0 : driveVelocity);
     delayMicroseconds(400);
