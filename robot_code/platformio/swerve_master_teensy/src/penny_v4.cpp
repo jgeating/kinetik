@@ -7,6 +7,7 @@
 #include "SbusReceiver.h"
 #include "shared/utils.h"
 #include "SlewRateLimiter.h"
+#include "ClosestAngleSteering.h"
 
 // Function declarations
 void controlSwerveModules();
@@ -21,9 +22,10 @@ struct SwerveModule {
   ODriveBase* steerMotor;
   VescBase* driveMotor;
   String name;
+  double steeringOffset;
 
-  SwerveModule(ODriveBase* steer, VescBase* drive, const String& moduleName)
-    : steerMotor(steer), driveMotor(drive), name(moduleName) {}
+  SwerveModule(ODriveBase* steer, VescBase* drive, const String& moduleName, double offset)
+    : steerMotor(steer), driveMotor(drive), name(moduleName), steeringOffset(offset) {}
 };
 
 // Create individual motor instances
@@ -40,18 +42,20 @@ Vesc<CAN2> frontLeftDrive(frontCanBus, 13);     // Front Left drive
 const size_t NUM_MODULES = 4;
 
 SwerveModule allModules[NUM_MODULES] = {
-  SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right"),  // [0]
-  SwerveModule(&backRightSteer, &backRightDrive, "Back Right"),     // [1]
-  SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left"),        // [2]
-  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left"),      // [3]
+  SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right", 0),  // [0]
+  SwerveModule(&backRightSteer, &backRightDrive, "Back Right", 0),     // [1]
+  SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left", 79 * M_PI / 180.0),        // [2]
+  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left", 0),      // [3]
 };
 
 SbusReceiver sbusReceiver;
 SlewRateLimiter steerLimiter(PI * 4);
+SlewRateLimiter driveLimiter(20);
+ClosestAngleSteering closestAngleSteering;
 
 // Timing
 unsigned long lastControlUpdate = 0;
-const unsigned long CONTROL_PERIOD = 20000; // 20ms = 50Hz
+const unsigned long CONTROL_PERIOD = 2000; // 20ms = 50Hz
 
 void setup() {
   Serial.begin(115200);
@@ -107,8 +111,15 @@ void loop() {
 }
 
 double stickAngle = 0.0;
-const double STEERING_DEADZONE = 0.1;
-const double MAX_VELOCITY = 2.0; // m/s - adjust based on your robot's capabilities
+const double STEERING_DEADZONE = 0.25;
+const double MAX_VELOCITY = 10; // m/s - adjust based on your robot's capabilities
+
+double scaleWithDeadband(double input, double deadband) {
+  if (abs(input) < deadband) {
+    return 0.0;
+  }
+  return (input - copysign(deadband, input)) / (1.0 - deadband);
+}
 
 void controlSwerveModules() {
   // Read left stick values
@@ -130,25 +141,33 @@ void controlSwerveModules() {
 
   // Convert stick magnitude to velocity for drive motors
   // Scale magnitude to reasonable velocity (adjust as needed)
-  double driveVelocity = speed * MAX_VELOCITY;
+  double driveVelocity = speed * MAX_VELOCITY * scaleWithDeadband(stickAngleMagnitude, STEERING_DEADZONE);
+  double slewedDriveVelocity = driveLimiter.calculate(driveVelocity);
 
   double redSwitch = sbusReceiver.getRedSwitch();
   bool disableTurning = redSwitch < -0.5;
   bool disableDriving = redSwitch < 0.5;
+
+  double closestStickAngle = closestAngleSteering.calculate(stickAngle);
+  double closestSteerPosition = closestStickAngle / (2.0 * PI);
   
-  double slewedstickAngle = steerLimiter.calculate(stickAngle);
-  // Convert stick angle to position command for steering motors
-  // ODrive position is in revolutions, so convert radians to revolutions
-  double slewedSteerPosition = slewedstickAngle / (2.0 * PI);
+  // double slewedstickAngle = steerLimiter.calculate(stickAngle);
+  // double closestStickAngle = closestAngleSteering.calculate(slewedstickAngle);
+
+  // // Convert stick angle to position command for steering motors
+  // // ODrive position is in revolutions, so convert radians to revolutions
+  // double closestSteerPosition = closestStickAngle / (2.0 * PI);
 
 
   // Apply commands to all modules
   for (int i = 0; i < NUM_MODULES; i++) {
     if (!disableTurning) {
-      allModules[i].steerMotor->setPosition(slewedSteerPosition);
+      // allModules[i].steerMotor->setAbsolutePosition(.25);
+      allModules[i].steerMotor->setPosition(closestSteerPosition);
+      // allModules[i].steerMotor->setPosition(closestSteerPosition + allModules[i].steeringOffset / (2.0 * PI));
     }
-    allModules[i].driveMotor->setVelocity(disableDriving ? 0 : driveVelocity);
-    delayMicroseconds(400);
+    allModules[i].driveMotor->setVelocity(disableDriving ? 0 : slewedDriveVelocity);
+    delayMicroseconds(100);
   }
 
   // Debug output every 1 second
