@@ -11,7 +11,7 @@
 #include <FlexCAN_T4.h>
 #include "Constants.h"
 
-#define STEER_GEAR_RATIO -18 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
+#define STEER_GEAR_RATIO 1 // RMD-X6 planetary ratio = 8:1, pulley ratio = 72/32 = 2.25
 
 struct pad_vars
 {
@@ -84,14 +84,14 @@ struct SwerveKinematics
 
   // Steering motor parameters
   bool calibrated = 0;                 // Whether or not the robot has been calibrated
-  double rmd_ratio = 8.0;              // ratio of RMD-X6 steering motor (does not include pulley stage)
-  double steering_pulley_ratio = 2.25; // ratio of pulley stage on output
-  double kv_steer = 60;                // kv of steering motor, rpm/V
+  double rmd_ratio = 1.0;              // ratio of RMD-X6 steering motor (does not include pulley stage)
+  double steering_pulley_ratio = 1.0;  // ratio of pulley stage on output
+  double kv_steer = 55;                // kv of steering motor, rpm/V
   double yRatio = STEER_GEAR_RATIO;    // Steer pulley stage ratio, >1
 
   // Drive motor parameters (hub motors)
-  int pole_pairs = 7;    // number of pole pairs in hub motors. Assuming 7 pole pairs from research. did not actually measure. Used for converting erpm to rpm, to calculate real velocities.
-  double kv_drive = 190; // kv of hub motors
+  int pole_pairs = 21;    // number of pole pairs in hub motors. Assuming 7 pole pairs from research. did not actually measure. Used for converting erpm to rpm, to calculate real velocities.
+  double kv_drive = 55; // kv of hub motors
 };
 
 struct LoopTiming
@@ -158,7 +158,7 @@ struct RobotState
 
 struct Watchdog
 {
-  unsigned long loopTimeMicros = 4500;
+  unsigned long loopTimeMicros = 2000;
   unsigned long timeBetweenReportsMicros = 1000000;
   unsigned long prevReportTime = 0;
   unsigned long prevLoopTime = 0;

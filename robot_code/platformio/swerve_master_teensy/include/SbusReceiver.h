@@ -25,9 +25,9 @@ private:
   uint32_t lastDataReceiveTime = 0;
   u_int32_t RC_TIMEOUT = 100000; // number of microseconds before receiver timeout is tripped - make sure it is a good bit longer than 2000 microseconds
 
-  const int16_t CHANNEL_DATA_MIN = 172;
-  const int16_t CHANNEL_DATA_MAX = 1811;
-  const int16_t CHANNEL_DATA_ZERO = 992;
+  const int16_t CHANNEL_DATA_MIN = 100;
+  const int16_t CHANNEL_DATA_MAX = 1900;
+  const int16_t CHANNEL_DATA_ZERO = 1000;
   const double CHANNEL_DATA_MAGNITUDE = CHANNEL_DATA_ZERO - CHANNEL_DATA_MIN;
 
 
