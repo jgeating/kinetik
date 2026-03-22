@@ -23,7 +23,7 @@
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
 byte mac[] = {
-  0xA8, 0x61, 0x0A, 0xAE, 0x00, 0xC3
+  0xCC, 0xBA, 0xBD, 0xCB, 0x38, 0x7C
 };
 IPAddress ip(192, 168, 0, 6);
 
