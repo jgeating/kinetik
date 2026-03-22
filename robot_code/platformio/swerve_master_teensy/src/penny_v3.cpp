@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <math.h>             // Math functions
 #include "Kinematics.h"       // wheel level kinematics/trigonometry
 #include "Planner.h"          // robot level planning
@@ -16,6 +17,15 @@
 #include "penny/Lights.h"
 #include "SwerveTelemetry.h"
 #include "SbusReceiver.h"
+
+// Function declarations
+void telemetry();
+void calMotor(SwerveCAN &can);
+void teleop();
+void padRiding();
+void updateLoopTiming();
+void zeroFootPads();
+double mapDouble(double x, double min_in, double max_in, double min_out, double max_out);
 
 // Definitions
 #pragma region
