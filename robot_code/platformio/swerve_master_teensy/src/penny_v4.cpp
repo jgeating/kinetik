@@ -8,6 +8,7 @@
 #include "shared/utils.h"
 #include "SlewRateLimiter.h"
 #include "ClosestAngleSteering.h"
+#include "Telemetry.h"
 
 // Function declarations
 void controlSwerveModules();
@@ -57,6 +58,9 @@ ClosestAngleSteering closestAngleSteering;
 unsigned long lastControlUpdate = 0;
 const unsigned long CONTROL_PERIOD = 2000; // 20ms = 50Hz
 
+// Telemetry
+Telemetry swerveTelemetry;
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -85,6 +89,8 @@ void setup() {
   Serial.println("Left stick controls swerve modules:");
   Serial.println("- Stick direction sets steering angle");
   Serial.println("- Stick magnitude sets drive velocity");
+
+  swerveTelemetry.start();
 }
 
 void loop() {
