@@ -12,6 +12,9 @@ void setup()
   Serial.println("Telemetry Testing");
 
   swerveTelemetry.start();
+
+  swerveTelemetry.sendBool("someBool", false);
+
 }
 
 int num = 0;
@@ -20,6 +23,7 @@ void loop()
 {
   num++;
   Serial.println(num);
-  swerveTelemetry.sendInt("someString", 3);
+  swerveTelemetry.sendBool("someBool", false);
+  swerveTelemetry.sendInt("someString", num);
   swerveTelemetry.send();
 }
