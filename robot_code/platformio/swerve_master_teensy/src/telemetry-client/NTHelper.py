@@ -5,14 +5,46 @@ Convenience wrappers around the RobotPy ntcore API for reading and writing
 typed values to NetworkTables.  All functions operate on the default
 NetworkTableInstance, mirroring the behaviour of the original Java class.
 
+Every set_* call also appends the value to a local .wpilog data log so that
+the full time-series is captured automatically.  The log file is created in
+the working directory and named telemetry_YYYYMMDD_HHMMSS.wpilog.
+
 Dependencies: robotpy-ntcore  (pip install robotpy-ntcore)
+             robotpy-wpiutil   (pip install robotpy-wpiutil)
 """
 
 from __future__ import annotations
 
-from typing import Callable, List
+import datetime
+from typing import Callable, List, Type
 
 import ntcore
+from wpiutil import DataLogBackgroundWriter
+from wpiutil.log import (
+    BooleanLogEntry,
+    BooleanArrayLogEntry,
+    DoubleLogEntry,
+    DoubleArrayLogEntry,
+    StringLogEntry,
+    StringArrayLogEntry,
+)
+
+
+# ---------------------------------------------------------------------------
+# Data log
+# ---------------------------------------------------------------------------
+_log_filename = datetime.datetime.now().strftime("telemetry_%Y%m%d_%H%M%S.wpilog")
+_datalog = DataLogBackgroundWriter(dir=".", filename=_log_filename)
+
+# Cache of key → LogEntry so each entry is only created once.
+_log_entries: dict = {}
+
+
+def _log(key: str, value, entry_class: Type) -> None:
+    """Append *value* to the typed log entry for *key*, creating it if needed."""
+    if key not in _log_entries:
+        _log_entries[key] = entry_class(_datalog, key)
+    _log_entries[key].append(value)
 
 
 # ---------------------------------------------------------------------------
@@ -63,8 +95,9 @@ def get_double(key: str, default_value: float) -> float:
 
 
 def set_double(key: str, value: float) -> None:
-    """Write *value* as a double to *key*."""
+    """Write *value* as a double to *key* and append it to the data log."""
     get_entry(key).setDouble(value)
+    _log(key, value, DoubleLogEntry)
 
 
 # ---------------------------------------------------------------------------
@@ -77,8 +110,9 @@ def get_string(key: str, default_value: str) -> str:
 
 
 def set_string(key: str, value: str) -> None:
-    """Write *value* as a string to *key*."""
+    """Write *value* as a string to *key* and append it to the data log."""
     get_entry(key).setString(value)
+    _log(key, value, StringLogEntry)
 
 
 # ---------------------------------------------------------------------------
@@ -91,8 +125,9 @@ def get_boolean(key: str, default_value: bool) -> bool:
 
 
 def set_boolean(key: str, value: bool) -> None:
-    """Write *value* as a boolean to *key*."""
+    """Write *value* as a boolean to *key* and append it to the data log."""
     get_entry(key).setBoolean(value)
+    _log(key, value, BooleanLogEntry)
 
 
 # ---------------------------------------------------------------------------
@@ -105,8 +140,9 @@ def get_string_array(key: str, default_value: List[str]) -> List[str]:
 
 
 def set_string_array(key: str, value: List[str]) -> None:
-    """Write *value* as a string array to *key*."""
+    """Write *value* as a string array to *key* and append it to the data log."""
     get_entry(key).setStringArray(value)
+    _log(key, value, StringArrayLogEntry)
 
 
 # ---------------------------------------------------------------------------
@@ -119,8 +155,9 @@ def get_boolean_array(key: str, default_value: List[bool]) -> List[bool]:
 
 
 def set_boolean_array(key: str, value: List[bool]) -> None:
-    """Write *value* as a boolean array to *key*."""
+    """Write *value* as a boolean array to *key* and append it to the data log."""
     get_entry(key).setBooleanArray(value)
+    _log(key, value, BooleanArrayLogEntry)
 
 
 # ---------------------------------------------------------------------------
@@ -133,5 +170,6 @@ def get_double_array(key: str, default_value: List[float]) -> List[float]:
 
 
 def set_double_array(key: str, value: List[float]) -> None:
-    """Write *value* as a double array to *key*."""
+    """Write *value* as a double array to *key* and append it to the data log."""
     get_entry(key).setDoubleArray(value)
+    _log(key, value, DoubleArrayLogEntry)

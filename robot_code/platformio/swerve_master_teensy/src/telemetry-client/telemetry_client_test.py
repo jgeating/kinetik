@@ -29,21 +29,23 @@ UDP_PORT = 8888        # must match m_udpPort on the Teensy
 
 
 def publish_packet(packet: dict) -> None:
-    """Forward every key in a telemetry packet to NetworkTables."""
+    """Forward every key in a telemetry packet to NetworkTables (logging is handled by NTHelper)."""
     for key, value in packet.items():
         nt_key = f"/telemetry/{key}"
+
+        # bool must be checked before (int, float) because bool is a subclass of int
         if isinstance(value, bool):
             NTHelper.set_boolean(nt_key, value)
         elif isinstance(value, (int, float)):
             NTHelper.set_double(nt_key, float(value))
         elif isinstance(value, str):
             NTHelper.set_string(nt_key, value)
+        elif isinstance(value, list) and all(isinstance(v, bool) for v in value):
+            NTHelper.set_boolean_array(nt_key, value)
         elif isinstance(value, list) and all(isinstance(v, (int, float)) for v in value):
             NTHelper.set_double_array(nt_key, [float(v) for v in value])
         elif isinstance(value, list) and all(isinstance(v, str) for v in value):
             NTHelper.set_string_array(nt_key, value)
-        elif isinstance(value, list) and all(isinstance(v, bool) for v in value):
-            NTHelper.set_boolean_array(nt_key, value)
         # Unknown / nested types are skipped; add handling here as needed.
 
 
@@ -61,12 +63,12 @@ def main() -> None:
             packets_received += 1
             print(f"[{addr[0]}] {packet}")
 
-            # Update bookkeeping entries
-            NTHelper.set_string ("/telemetry/status",           "receiving")
-            NTHelper.set_boolean("/telemetry/connected",         True)
-            NTHelper.set_double ("/telemetry/packets_received",  float(packets_received))
+            # Update bookkeeping (NTHelper also logs each value automatically)
+            NTHelper.set_string ("/telemetry/status",          "receiving")
+            NTHelper.set_boolean("/telemetry/connected",        True)
+            NTHelper.set_double ("/telemetry/packets_received", float(packets_received))
 
-            # Forward the packet payload
+            # Forward the packet payload (NTHelper logs each value automatically)
             publish_packet(packet)
 
         except json.JSONDecodeError as e:
