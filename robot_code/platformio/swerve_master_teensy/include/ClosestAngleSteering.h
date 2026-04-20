@@ -69,6 +69,19 @@ public:
         m_currentAngleDeg = 0;
     }
 
+    /**
+     * Advance the module toward the closest equivalent heading and return the new absolute
+     * position setpoint.
+     *
+     * The method finds the shortest angular step (at most 90°) from the current accumulated
+     * angle to the target, adds that step to the running total, and returns the result.
+     * Because the output accumulates across calls it can be divided directly by 2π to obtain
+     * a position command in revolutions for the ODrive controller.
+     *
+     * @param targetAngleRad  Desired heading in radians (any value; wrapping is handled internally)
+     * @return Accumulated absolute angle in radians, negated to match motor polarity convention.
+     *         Divide by (2π) to convert to ODrive position revolutions.
+     */
     double calculate(double targetAngleRad) {
         double targetAngleDegrees = targetAngleRad * 180.0 / PI;
         double angleDiff = angleDifference(m_currentAngleDeg, targetAngleDegrees);

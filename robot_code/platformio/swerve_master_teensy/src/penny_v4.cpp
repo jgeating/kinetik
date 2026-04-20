@@ -43,10 +43,10 @@ Vesc<CAN2> frontLeftDrive(frontCanBus, 13);     // Front Left drive
 const size_t NUM_MODULES = 4;
 
 SwerveModule allModules[NUM_MODULES] = {
-  SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right", 0),  // [0]
-  SwerveModule(&backRightSteer, &backRightDrive, "Back Right", 0),     // [1]
-  SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left", 79 * M_PI / 180.0),        // [2]
-  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left", 0),      // [3]
+  SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right", 0), // [0]
+  SwerveModule(&backRightSteer, &backRightDrive, "Back Right", -90.0 / 360.0), // [1]
+  SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left", (79.0 + 90) / 360.0), // [2]
+  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left", 0), // [3]
 };
 
 SbusReceiver sbusReceiver;
@@ -82,6 +82,7 @@ void setup() {
   for (int i = 0; i < NUM_MODULES; i++) {
     allModules[i].steerMotor->setPositionControlMode();
     allModules[i].steerMotor->enableWithClosedLoop();
+    allModules[i].steerMotor->setEncoderOffset(allModules[i].steeringOffset);
     delay(100);
   }
 
@@ -90,12 +91,27 @@ void setup() {
   Serial.println("- Stick direction sets steering angle");
   Serial.println("- Stick magnitude sets drive velocity");
 
-  swerveTelemetry.start();
+  // swerveTelemetry.start();
 }
 
 void loop() {
   // Read SBUS data
   sbusReceiver.read();
+
+  // Dispatch all pending CAN messages to every steering motor.
+  // Each ODrive::processMessage() checks the message ID and only updates
+  // its own cache, so no message is accidentally consumed by the wrong node.
+  CAN_message_t canMsg;
+  while (frontCanBus.read(canMsg)) {
+    for (size_t i = 0; i < NUM_MODULES; i++) {
+      allModules[i].steerMotor->processMessage(canMsg);
+    }
+  }
+  while (backCanBus.read(canMsg)) {
+    for (size_t i = 0; i < NUM_MODULES; i++) {
+      allModules[i].steerMotor->processMessage(canMsg);
+    }
+  }
 
   unsigned long currentTime = micros();
 
@@ -193,6 +209,14 @@ void controlSwerveModules() {
     Serial.print(driveVelocity, 3);
     Serial.print(", Red Switch: ");
     Serial.println(redSwitch);
+
+    for (int i = 0; i < NUM_MODULES; i++) {
+      String moduleName = allModules[i].name;
+      float encoderPosition = allModules[i].steerMotor->getEncoderPosition();
+      Serial.print(moduleName);
+      Serial.print(" encoder: ");
+      Serial.println(encoderPosition, 4);
+    }
   }
 }
 
