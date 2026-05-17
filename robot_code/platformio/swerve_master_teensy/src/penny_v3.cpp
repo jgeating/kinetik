@@ -15,7 +15,7 @@
 #include "PID.h"                    // For PID controllers
 #include "shared/LowPassFilter.cpp" // Low pass filter class
 #include "penny/Lights.h"
-#include "SwerveTelemetry.h"
+#include "Telemetry.h"
 #include "SbusReceiver.h"
 
 // Function declarations
@@ -70,7 +70,7 @@ LowPassFilter filter(10); // create a low-pass filter with 10 readings
 
 #pragma endregion
 
-SwerveTelemetry swerveTelemetry;
+Telemetry swerveTelemetry;
 SbusReceiver sbusReceiver;
 
 void setup()

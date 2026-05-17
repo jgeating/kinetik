@@ -11,6 +11,7 @@
 #include "Planner.h"
 #include "Swerve.h"
 #include "SwerveTelemetry.h"
+#include "Telemetry.h"
 
 // Function declarations
 void controlSwerveModules();
@@ -102,6 +103,8 @@ void setup() {
   Serial.println("Left stick controls swerve modules:");
   Serial.println("- Stick direction sets steering angle");
   Serial.println("- Stick magnitude sets drive velocity");
+
+  // swerveTelemetry.start();
 }
 
 void loop() {
