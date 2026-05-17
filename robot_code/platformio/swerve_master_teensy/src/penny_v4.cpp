@@ -15,7 +15,7 @@ void controlSwerveModules();
 void stopAllMotors();
 
 // CAN Bus setup - Front modules on CAN3, Back modules on CAN1
-FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> frontCanBus;   // CAN3 for front modules (both steering and drive)
+FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> frontCanBus;   // CAN3 for front modules (both steering and drive)
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> backCanBus;      // CAN1 for back modules (both steering and drive)
 
 // Simple swerve module structure using base class pointers
@@ -30,23 +30,24 @@ struct SwerveModule {
 };
 
 // Create individual motor instances
-ODrive<CAN2> frontRightSteer(frontCanBus, 0);   // Front Right steering
-Vesc<CAN2> frontRightDrive(frontCanBus, 10);    // Front Right drive
+ODrive<CAN3> frontRightSteer(frontCanBus, 0);   // Front Right steering
+Vesc<CAN3> frontRightDrive(frontCanBus, 10);    // Front Right drive
 ODrive<CAN1> backRightSteer(backCanBus, 1);       // Back Right steering
 Vesc<CAN1> backRightDrive(backCanBus, 11);        // Back Right drive
 ODrive<CAN1> backLeftSteer(backCanBus, 2);        // Back Left steering
 Vesc<CAN1> backLeftDrive(backCanBus, 12);         // Back Left drive
-ODrive<CAN2> frontLeftSteer(frontCanBus, 3);    // Front Left steering
-Vesc<CAN2> frontLeftDrive(frontCanBus, 13);     // Front Left drive
+ODrive<CAN3> frontLeftSteer(frontCanBus, 3);    // Front Left steering
+Vesc<CAN3> frontLeftDrive(frontCanBus, 13);     // Front Left drive
 
 // Create array of all 4 swerve modules
 const size_t NUM_MODULES = 4;
 
 SwerveModule allModules[NUM_MODULES] = {
   SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right", 0),  // [0]
-  SwerveModule(&backRightSteer, &backRightDrive, "Back Right", 0),     // [1]
-  SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left", 79 * M_PI / 180.0),        // [2]
-  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left", 0),      // [3]
+  SwerveModule(&backRightSteer, &backRightDrive, "Back Right",    0),     // [1]
+  SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left",       0),        // [2]
+  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left",    0),      // [3]
+  // SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left", 79 * M_PI / 180.0),      // [3]
 };
 
 SbusReceiver sbusReceiver;
@@ -90,7 +91,7 @@ void setup() {
   Serial.println("- Stick direction sets steering angle");
   Serial.println("- Stick magnitude sets drive velocity");
 
-  swerveTelemetry.start();
+  // swerveTelemetry.start();
 }
 
 void loop() {
@@ -169,8 +170,8 @@ void controlSwerveModules() {
   for (int i = 0; i < NUM_MODULES; i++) {
     if (!disableTurning) {
       // allModules[i].steerMotor->setAbsolutePosition(.25);
-      allModules[i].steerMotor->setPosition(closestSteerPosition);
-      // allModules[i].steerMotor->setPosition(closestSteerPosition + allModules[i].steeringOffset / (2.0 * PI));
+      // allModules[i].steerMotor->setPosition(closestSteerPosition);
+      allModules[i].steerMotor->setPosition(closestSteerPosition + allModules[i].steeringOffset / (2.0 * PI));
     }
     allModules[i].driveMotor->setVelocity(disableDriving ? 0 : slewedDriveVelocity);
     delayMicroseconds(100);
