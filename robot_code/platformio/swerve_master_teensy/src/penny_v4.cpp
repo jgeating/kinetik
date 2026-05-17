@@ -10,13 +10,14 @@
 #include "ClosestAngleSteering.h"
 #include "Planner.h"
 #include "Swerve.h"
+#include "SwerveTelemetry.h"
 
 // Function declarations
 void controlSwerveModules();
 void stopAllMotors();
 
 // CAN Bus setup - Front modules on CAN3, Back modules on CAN1
-FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> frontCanBus;   // CAN3 for front modules (both steering and drive)
+FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> frontCanBus;   // CAN3 for front modules (both steering and drive)
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> backCanBus;      // CAN1 for back modules (both steering and drive)
 
 // Swerve Kinematics structs 
@@ -36,23 +37,27 @@ struct SwerveModule {
 };
 
 // Create individual motor instances
-ODrive<CAN2> frontRightSteer(frontCanBus, 0);   // Front Right steering
-Vesc<CAN2> frontRightDrive(frontCanBus, 10);    // Front Right drive
+ODrive<CAN3> frontRightSteer(frontCanBus, 0);   // Front Right steering
+Vesc<CAN3> frontRightDrive(frontCanBus, 10);    // Front Right drive
 ODrive<CAN1> backRightSteer(backCanBus, 1);     // Back Right steering
 Vesc<CAN1> backRightDrive(backCanBus, 11);      // Back Right drive
 ODrive<CAN1> backLeftSteer(backCanBus, 2);      // Back Left steering
 Vesc<CAN1> backLeftDrive(backCanBus, 12);       // Back Left drive
-ODrive<CAN2> frontLeftSteer(frontCanBus, 3);    // Front Left steering
-Vesc<CAN2> frontLeftDrive(frontCanBus, 13);     // Front Left drive
+ODrive<CAN3> frontLeftSteer(frontCanBus, 3);    // Front Left steering
+Vesc<CAN3> frontLeftDrive(frontCanBus, 13);     // Front Left drive
 
 // Create array of all swerve modules
 const size_t NUM_MODULES = 4;
 
 SwerveModule allModules[NUM_MODULES] = {
-  SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right", 0),  // [0]
-  SwerveModule(&backRightSteer, &backRightDrive, "Back Right", 0),     // [1]
-  SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left", 79 * M_PI / 180.0),        // [2]
-  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left", 0),      // [3]
+  SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right", 0 * M_PI / 180.0),  // [0]
+  SwerveModule(&backRightSteer, &backRightDrive, "Back Right", 0 * M_PI / 180.0),     // [1]
+  SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left", 0 * M_PI / 180.0),        // [2]
+  SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left", 0 * M_PI / 180.0),      // [3]
+  // SwerveModule(&frontRightSteer, &frontRightDrive, "Front Right", 68 * M_PI / 180.0),  // [0]
+  // SwerveModule(&backRightSteer, &backRightDrive, "Back Right", -5 * M_PI / 180.0),     // [1]
+  // SwerveModule(&backLeftSteer, &backLeftDrive, "Back Left", 92 * M_PI / 180.0),        // [2]
+  // SwerveModule(&frontLeftSteer, &frontLeftDrive, "Front Left", 70 * M_PI / 180.0),      // [3]
 };
 
 // Timing
@@ -64,6 +69,7 @@ SlewRateLimiter steerLimiter(PI * 4);
 SlewRateLimiter driveLimiter(20);
 ClosestAngleSteering closestAngleSteering;
 Planner planner((double)CONTROL_PERIOD, traj, padVars, kin);
+SwerveTelemetry swerveTelemetry;
 
 void setup() {
   Serial.begin(115200);
@@ -81,6 +87,9 @@ void setup() {
 
   // Initialize SBUS receiver
   sbusReceiver.init();
+
+  // Initialize telemetry
+  swerveTelemetry.start();
 
   // Configure ODrive motors for position control
   for (int i = 0; i < NUM_MODULES; i++) {
@@ -115,6 +124,9 @@ void loop() {
 
     // Control all swerve modules
     controlSwerveModules();
+
+    // Send buffered telemetry data
+    swerveTelemetry.sendBufferedData();
   }
 }
 
@@ -173,7 +185,7 @@ void controlSwerveModules() {
 
   // Apply commands to all modules
   for (int i = 0; i < NUM_MODULES; i++) {
-    if (i == 0){
+    // if (i == 0 || i == 3) { // Front modules use CAN3
       planner.plan_teleop(vx, vy, vz, gain_in);
 
       if (!disableTurning) {
@@ -181,7 +193,8 @@ void controlSwerveModules() {
       }
       allModules[i].driveMotor->setVelocity(disableDriving ? 0 : planner.getDriveWheelSpeed(i));
       delayMicroseconds(100);
-    }
+      Serial.println(allModules[i].name + " - Steer Pos: " + String(planner.getSteerAngle(i) * 180.0 / PI, 2) + " deg, Drive Vel: " + String(planner.getDriveWheelSpeed(i), 2) + " m/s");
+    // }
   }
 
   // Debug output every 1 second
@@ -201,8 +214,9 @@ void controlSwerveModules() {
     // Serial.print(driveVelocity, 3);
     // Serial.print(", Red Switch: ");
     // Serial.println(redSwitch);
-    Serial.println(planner.getDriveWheelSpeed(3));
-    Serial.println("----");
+    // swerveTelemetry.queueDouble(planner.getDriveWheelSpeed(3));
+    // Serial.println(planner.getDriveWheelSpeed(3));  // Keep local debug
+    // Serial.println("----");
   }
 }
 

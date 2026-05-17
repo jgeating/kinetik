@@ -1,28 +1,68 @@
 import socket
 import struct
+import time
+import numpy as np
+from collections import deque
+from pathlib import Path
 
-format = "<ddd"
+UDP_IP = "192.168.0.5"  # Your laptop IP
+UDP_PORT = 8888
 
-def udp_client():
-    UDP_IP = "192.168.0.5"  # Server IP address
-    UDP_PORT = 8888       # Server port number
-    MESSAGE = b"Hello, Server!"
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
 
-    print(f"UDP target IP: {UDP_IP}")
-    print(f"UDP target port: {UDP_PORT}")
-    print(f"Message: {MESSAGE}")
+# Data storage
+data_buffer = []
+timestamps_buffer = []
+BUFFER_SIZE = 50000  # Save to disk every 50k samples
+SAVE_DIR = Path("telemetry_data")
+SAVE_DIR.mkdir(exist_ok=True)
 
-    # Create a UDP socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((UDP_IP, UDP_PORT))
+# Session info
+start_time = time.time()
+file_counter = 0
 
+def save_buffer():
+    """Save accumulated data to NumPy files."""
+    global file_counter, data_buffer, timestamps_buffer
+    
+    if len(data_buffer) == 0:
+        return
+    
+    timestamp_str = time.strftime("%Y%m%d_%H%M%S")
+    data_path = SAVE_DIR / f"data_{timestamp_str}_{file_counter:03d}.npy"
+    ts_path = SAVE_DIR / f"timestamps_{timestamp_str}_{file_counter:03d}.npy"
+    
+    np.save(data_path, np.array(data_buffer, dtype=np.float64))
+    np.save(ts_path, np.array(timestamps_buffer, dtype=np.float64))
+    
+    print(f"Saved {len(data_buffer)} samples to {data_path}")
+    data_buffer = []
+    timestamps_buffer = []
+    file_counter += 1
 
-    buffer = b''
+print(f"Listening for telemetry on {UDP_IP}:{UDP_PORT}")
+print(f"Data will be saved to {SAVE_DIR}/")
 
+try:
     while True:
-        data, server = sock.recvfrom(1024)  # Buffer size is 1024 bytes
-        (x, y, z) = struct.unpack(format, data)
-        print("data:", x, y, z)
+        data, addr = sock.recvfrom(1024)
+        num_doubles = len(data) // 8
+        doubles = struct.unpack('<' + 'd' * num_doubles, data)
+        
+        current_time = time.time() - start_time
+        
+        for value in doubles:
+            print(f"[{current_time:.3f}] {value:.6f}")
+            data_buffer.append(value)
+            timestamps_buffer.append(current_time)
+        
+        # Save when buffer is full
+        if len(data_buffer) >= BUFFER_SIZE:
+            save_buffer()
 
-if __name__ == "__main__":
-    udp_client()
+except KeyboardInterrupt:
+    print("\nShutting down...")
+    save_buffer()  # Save remaining data
+    sock.close()
+    print("Done. Load data with: np.load('telemetry_data/data_*.npy')")
