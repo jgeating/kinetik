@@ -185,6 +185,7 @@ void loop() {
 
     // Send telemetry data
     // telemetry.sendToSerial();
+    telemetry.send();
   }
 }
 
