@@ -1,7 +1,7 @@
 #ifndef __SWERVE_TELEMETRY_H
 #define __SWERVE_TELEMETRY_H
 
-#include <Ethernet.h>
+#include <NativeEthernet.h>
 #include <EthernetUdp.h>
 
 class SwerveTelemetry {
