@@ -1,17 +1,18 @@
-#ifndef __TELEMETRY_H
-#define __TELEMETRY_H
+#ifndef __TELEMETRY_SERIAL_H
+#define __TELEMETRY_SERIAL_H
 
-#include <Ethernet.h>
-#include <EthernetUdp.h>
+#include <Arduino.h>
 #include <ArduinoJson.h>
 
-class Telemetry {
+class TelemetrySerial {
 
 public:
-  Telemetry();
+  // Pass any serial-like object (Serial, Serial1, Serial2, …).
+  // The caller is responsible for calling Serial.begin() before start().
+  TelemetrySerial(Stream& serial = Serial);
   void start();
 
-  // Accumulate values into the next UDP packet
+  // Accumulate values into the next serial packet
   void sendInt(const String& name, int value);
   void sendFloat(const String& name, float value);
   void sendDouble(const String& name, double value);
@@ -22,19 +23,14 @@ public:
   void sendDoubleArray(const String& name, double* value, size_t len);
   void sendBoolArray(const String& name, bool* value, size_t len);
 
-  // Serialize accumulated data and transmit over UDP, then clear the buffer
+  // Serialize accumulated data and transmit over serial, then clear the buffer
   void send();
 
 private:
-  byte m_mac[6] = {0xA8, 0x61, 0x0A, 0xAE, 0x00, 0xB9};  // Arduino shield mac address
-  // byte m_mac[6] = {0xCC, 0xBA, 0xBD, 0xCB, 0x3B, 0x7C};
-  IPAddress m_ip;
-  IPAddress m_remoteIp;
-  unsigned int m_udpPort = 8888;
-  EthernetUDP m_udp;
+  Stream& m_serial;
   JsonDocument m_doc;
-  char m_txBuffer[512];
+  char m_txBuffer[2048];
 };
 
 /********************************************************************/
-#endif  // __TELEMETRY_H
+#endif  // __TELEMETRY_SERIAL_H

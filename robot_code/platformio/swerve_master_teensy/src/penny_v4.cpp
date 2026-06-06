@@ -9,9 +9,8 @@
 #include "SlewRateLimiter.h"
 #include "ClosestAngleSteering.h"
 #include "Planner.h"
-#include "Swerve.h"
+#include "TelemetrySerial.h"
 #include "SwerveTelemetry.h"
-#include "Telemetry.h"
 #include "Pads.h"
 
 #pragma #region
@@ -71,7 +70,7 @@ SlewRateLimiter steerLimiter(PI * 4);
 SlewRateLimiter driveLimiter(20);
 ClosestAngleSteering closestAngleSteering;
 Planner planner((double)CONTROL_PERIOD, traj, padVars, kin);
-Telemetry telemetry;
+TelemetrySerial telemetry;
 Pads pads;
 
 double stickAngle = 0.0;
@@ -141,7 +140,7 @@ void loop() {
   }
 
   // If Ethernet isn't up yet (e.g. DHCP lost the race with link negotiation), retry.
-  telemetry.retryIfNeeded();
+  // telemetry.retryIfNeeded();
 
   // Heartbeat: confirm the loop is running and report telemetry/network status
   static unsigned long lastHeartbeat = 0;
@@ -149,16 +148,16 @@ void loop() {
     lastHeartbeat = millis();
     Serial.print("[HB] uptime_ms=");
     Serial.print(millis());
-    Serial.print(" telemetryReady=");
-    Serial.print(telemetry.isReady() ? "1" : "0");
-    Serial.print(" link=");
-    Serial.print(telemetry.linkStatus());  // 0=Unknown,1=On,2=Off
-    Serial.print(" ip=");
-    Serial.print(telemetry.localIp());
-    Serial.print(" -> ");
-    Serial.print(telemetry.remoteIp());
-    Serial.print(":");
-    Serial.print(telemetry.udpPort());
+    // Serial.print(" telemetryReady=");
+    // Serial.print(telemetry.isReady() ? "1" : "0");
+    // Serial.print(" link=");
+    // Serial.print(telemetry.linkStatus());  // 0=Unknown,1=On,2=Off
+    // Serial.print(" ip=");
+    // Serial.print(telemetry.localIp());
+    // Serial.print(" -> ");
+    // Serial.print(telemetry.remoteIp());
+    // Serial.print(":");
+    // Serial.print(telemetry.udpPort());
     Serial.print(" rcLost=");
     Serial.println(sbusReceiver.rcLost() ? "1" : "0");
   }
@@ -186,6 +185,7 @@ void loop() {
 
     // Send telemetry data
     // telemetry.sendToSerial();
+    telemetry.send();
   }
 }
 
@@ -258,6 +258,10 @@ void controlSwerveModules() {
     telemetry.sendFloatArray("swerve/pad_forces", forces, 8);
     
     // Center of pressure (X, Y, Z normalized outputs)
+    telemetry.sendDouble("swerve/cop_x_l", pads.get_cop_x_l() / 255.0);
+    telemetry.sendDouble("swerve/cop_y_l", pads.get_cop_y_l() / 255.0);
+    telemetry.sendDouble("swerve/cop_x_r", pads.get_cop_x_r() / 255.0);
+    telemetry.sendDouble("swerve/cop_y_r", pads.get_cop_y_r() / 255.0);
     telemetry.sendDouble("swerve/cop_x", pads.getX());
     telemetry.sendDouble("swerve/cop_y", pads.getY());
     telemetry.sendDouble("swerve/cop_z", pads.getZ());
