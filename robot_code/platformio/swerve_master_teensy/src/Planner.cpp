@@ -48,18 +48,16 @@ Planner::Planner(double tInner, SwerveTrajectory traj, pad_vars padVars, SwerveK
   this->min_tracking_wheels = traj.min_tracking_wheels;
 
   // Drive variables
-  this->d_qd_max = traj.qd_max[0] * 1.5;
-  this->d_qdd_max = traj.qdd_max[0] * 1.5;
+  this->d_qd_max = traj.qd_max[0];
+  this->d_qdd_max = traj.qdd_max[0];
 
   // Kinematics setup
   for (int i = 0; i < 4; i++)
   {
     this->kinematics[i] = new Kinematics(0.25, 0, i); // (radius to wheels, deadband [0 to 1], wheel index)
   }
-
   bot_state = new state(dt, 10); // For now, manually enter lag filter size here
 }
-
 int Planner::plan_teleop(double x_in, double y_in, double z_in, double gain_in)
 {
   this->input[0] = x_in;
@@ -86,7 +84,7 @@ int Planner::plan_teleop(double x_in, double y_in, double z_in, double gain_in)
       this->qd_d[i] = -this->qd_d[i] * (this->gain + 1.0) / 2.0; // for steer, only scale between 50% and 100%, not 0 and 100%
     }
 
-    // Scale from unitless to real values
+    // Scale from unitless to SI values
     this->qd_d[i] = this->qd_d[i] * this->qd_max[i];
   }
 
@@ -95,6 +93,7 @@ int Planner::plan_teleop(double x_in, double y_in, double z_in, double gain_in)
   // this->regularize();
   return 0;
 }
+
 enum class PadControlMode
 {
   DEACTIVATED,
@@ -107,7 +106,6 @@ enum PadAxis
   PAD_Y = 1,
   PAD_Z = 2,
 };
-
 double applyDeadband(double input, double deadband) {
   if (abs(input) < deadband) {
     return 0;
@@ -216,16 +214,24 @@ int Planner::steerTo(double ang, int ind)
   this->s_mot_q[ind] = this->s_mot_q[ind] - delYaw * this->s_ratio; // Minus sign added 1/6/2024 because steering was reversed. definitely a better way
   return 0;
 }
-int Planner::driveTo(double vel, int ind)
+int Planner::driveTo(double vel, int i_d)
 {
-  this->d_qd[ind] = vel * this->s_dir[ind];
+  vel = vel * this->s_dir[i_d];
+  double err = vel - this->d_qd[i_d];
+  double max_dqd_per_dt = this->d_qdd_max * this->dt;
+  if (abs(err) > abs(max_dqd_per_dt)){
+    this->d_qd[i_d] = this->d_qd[i_d] + sign(err) * max_dqd_per_dt;
+  } else {
+    this->d_qd[i_d] = vel;
+  }
+  this->d_qd[i_d] = lim(this->d_qd[i_d], -this->d_qd_max, this->d_qd_max);
   return 0;
 }
 int Planner::calcFromVels() // Robot level slew limits etc. would be applied here
 {
   // double qd_d_mag = sqrt(pow(this->qd_d[0], 2) + pow(this->qd_d[1], 2));
-  // double vv_d = atan2(this->qd_d[1], this->qd_d[0]);
-  // double vv_d_err = dewrap(vv_d - this->vv);
+  // double vv_d = atan2(this->qd_d[1], this->qd_d[0]);  // velocity vector (angle) or robot, radians 
+  // double vv_d_err = dewrap(vv_d - this->vv);          // error in velocity vector, radians 
   // double vv_allowed = this->vv + vv_d_err * 0.05; // manually tuned multiplier to dampen vvd
 
   // double qd_dot = cos(vv_allowed) * this->qd_d[0] + sin(vv_allowed) * this->qd_d[1]; // dot product
@@ -237,7 +243,17 @@ int Planner::calcFromVels() // Robot level slew limits etc. would be applied her
 
   for (int i = 0; i < 3; i++)
   {
-    this->qd[i] = this->qd_d[i];
+    // Robot level acceleration limiting
+    double err = this->qd_d[i] - this->qd[i];
+    double max_qd_per_dt = this->qdd_max[i] * this->dt;
+    if (abs(err) > abs(max_qd_per_dt)){
+      this->qd[i] = this->qd[i] + max_qd_per_dt * sign(err);
+    } else {
+      this->qd[i] = this->qd_d[i];
+    }
+
+    // Robot level velocity limiting
+    this->qd[i] = lim(this->qd[i], -this->qd_max[i], this->qd_max[i]);
   }
 
   // Handle velocity vector rate calculation

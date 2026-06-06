@@ -65,6 +65,7 @@ private:
   // Drive variables
   double d_qd[4] = {0, 0, 0, 0};
   double d_qdd[4] = {0, 0, 0, 0};
+  double d_error[4] = {0, 0, 0, 0};
   double d_qd_max;
   double d_qdd_max;
 
