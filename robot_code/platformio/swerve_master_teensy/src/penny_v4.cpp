@@ -141,7 +141,7 @@ void loop() {
   }
 
   // If Ethernet isn't up yet (e.g. DHCP lost the race with link negotiation), retry.
-  telemetry.retryIfNeeded();
+  // telemetry.retryIfNeeded();
 
   // Heartbeat: confirm the loop is running and report telemetry/network status
   static unsigned long lastHeartbeat = 0;
@@ -149,16 +149,16 @@ void loop() {
     lastHeartbeat = millis();
     Serial.print("[HB] uptime_ms=");
     Serial.print(millis());
-    Serial.print(" telemetryReady=");
-    Serial.print(telemetry.isReady() ? "1" : "0");
-    Serial.print(" link=");
-    Serial.print(telemetry.linkStatus());  // 0=Unknown,1=On,2=Off
-    Serial.print(" ip=");
-    Serial.print(telemetry.localIp());
-    Serial.print(" -> ");
-    Serial.print(telemetry.remoteIp());
-    Serial.print(":");
-    Serial.print(telemetry.udpPort());
+    // Serial.print(" telemetryReady=");
+    // Serial.print(telemetry.isReady() ? "1" : "0");
+    // Serial.print(" link=");
+    // Serial.print(telemetry.linkStatus());  // 0=Unknown,1=On,2=Off
+    // Serial.print(" ip=");
+    // Serial.print(telemetry.localIp());
+    // Serial.print(" -> ");
+    // Serial.print(telemetry.remoteIp());
+    // Serial.print(":");
+    // Serial.print(telemetry.udpPort());
     Serial.print(" rcLost=");
     Serial.println(sbusReceiver.rcLost() ? "1" : "0");
   }
