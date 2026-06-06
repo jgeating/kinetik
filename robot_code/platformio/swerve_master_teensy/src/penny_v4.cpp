@@ -9,9 +9,8 @@
 #include "SlewRateLimiter.h"
 #include "ClosestAngleSteering.h"
 #include "Planner.h"
-#include "Swerve.h"
+#include "TelemetrySerial.h"
 #include "SwerveTelemetry.h"
-#include "Telemetry.h"
 #include "Pads.h"
 
 #pragma #region
@@ -71,7 +70,7 @@ SlewRateLimiter steerLimiter(PI * 4);
 SlewRateLimiter driveLimiter(20);
 ClosestAngleSteering closestAngleSteering;
 Planner planner((double)CONTROL_PERIOD, traj, padVars, kin);
-Telemetry telemetry;
+TelemetrySerial telemetry;
 Pads pads;
 
 double stickAngle = 0.0;
