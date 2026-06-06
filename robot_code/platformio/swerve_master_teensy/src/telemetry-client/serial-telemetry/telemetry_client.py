@@ -100,7 +100,7 @@ class TelemetryClient:
                 try:
                     packet = json.loads(line)
                     self.packet_count += 1
-                    if self._callback is not None:
+                    if self._callback is not None and packet is not None:
                         for key, value in packet.items():
                             self._callback(key, value)
                 except json.JSONDecodeError:
