@@ -258,6 +258,10 @@ void controlSwerveModules() {
     telemetry.sendFloatArray("swerve/pad_forces", forces, 8);
     
     // Center of pressure (X, Y, Z normalized outputs)
+    telemetry.sendDouble("swerve/cop_x_l", pads.get_cop_x_l() / 255.0);
+    telemetry.sendDouble("swerve/cop_y_l", pads.get_cop_y_l() / 255.0);
+    telemetry.sendDouble("swerve/cop_x_r", pads.get_cop_x_r() / 255.0);
+    telemetry.sendDouble("swerve/cop_y_r", pads.get_cop_y_r() / 255.0);
     telemetry.sendDouble("swerve/cop_x", pads.getX());
     telemetry.sendDouble("swerve/cop_y", pads.getY());
     telemetry.sendDouble("swerve/cop_z", pads.getZ());

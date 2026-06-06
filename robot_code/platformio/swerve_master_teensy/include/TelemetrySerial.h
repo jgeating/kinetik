@@ -29,7 +29,7 @@ public:
 private:
   Stream& m_serial;
   JsonDocument m_doc;
-  char m_txBuffer[512];
+  char m_txBuffer[2048];
 };
 
 /********************************************************************/
