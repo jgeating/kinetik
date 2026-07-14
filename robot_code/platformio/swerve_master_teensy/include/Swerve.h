@@ -16,35 +16,14 @@
 struct pad_vars
 {
   // Kinematics parameters
-  float qd_max[3] = {100, 100, 100}; // Max speeds in weight control mode {m/s, m/s, rad/s}
-  float qdd_max[3] = {50, 50, 50};   // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
+  float qd_max[3] = {20, 20, 20}; // Max speeds in weight control mode {m/s, m/s, rad/s}
+  float qdd_max[3] = {100, 50, 50};   // Max accelerations in weight control mode {m/s^2, m/s^2, rad/s^2}
 
   // Control loop parameters
-  float kp[3] = {-160, -80, -100}; // Position term for weight control loop. {x, y, z}. Was -80, -40, -30
+  float kp[3] = {50, 50, 0}; // Position term for weight control loop. {x, y, z}. Was -80, -40, -30
   float ki[3] = {0, 0, 0};         // Integral term
-  float kd[3] = {10, 10, .1};      // Derivative term, should always be negative
-  float lag[3] = {3, 3, 4};        // No. of samples for lag filter
-};
-
-struct vest_vars
-{
-  double kp_x = 25;  // proportional gain for lean controller (forwards/backwards). Multiples into (m/s^2) / rad
-  double kp_y = 100; // proportional gain for lean controller (left/right). Multiples into (m/s^2) / rad
-  double kp_z = 15;  // proportional gain for lean controller (rotation). Multiples into (rad/sec^2) / rad
-  double kd_x = .05; // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec)
-  double kd_y = .3;  // derivative gain for lean controller. Multiples into (m/s^2) / (rad/sec)
-  double kd_z = 0;   // derivative gain for lean controller. Multiples into (rad/s^2) / (rad/sec)
-
-  double x = 0;              // x angle of imu vest
-  double y = 0;              // y angle of imu vest
-  double z = 0;              // z angle of imu vest
-  double maxLean = M_PI / 4; // max lean angle, to scale to output
-  double xZero = 0;          // Zero angle of vest. Set when calibrating starting lean angle
-  double yZero = 0;
-  double zZero = 0;
-  double xRate = 0; // x rotation rate (direct gyro signal)
-  double yRate = 0;
-  double zRate = 0;
+  float kd[3] = {-3, -3, .02};      // Derivative term, should always be negative
+  float lag[3] = {15, 15, 15};        // No. of samples for lag filter
 };
 
 struct imu_vars

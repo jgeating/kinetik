@@ -114,13 +114,16 @@ double applyDeadband(double input, double deadband) {
 }
 int Planner::plan_pads(double x_in, double y_in, double z_in, double gain_in)
 {
+  x_in = x_in * gain_in;
+  y_in = y_in * gain_in;
+  z_in = z_in * gain_in;
   
   // padx_pid->setInput(applyDeadband(x_in, .1));
   padx_pid->setInput(x_in);
   pady_pid->setInput(y_in);
   padz_pid->setInput(z_in);
 
-  PadControlMode control_mode[] = {PadControlMode::DEACTIVATED, PadControlMode::DEACTIVATED, PadControlMode::VELOCITY}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
+  PadControlMode control_mode[] = {PadControlMode::ACCELERATION, PadControlMode::ACCELERATION, PadControlMode::DEACTIVATED}; // sets control mode of each axis hardcoded for now. 0 = deactivated, 1 = velocity mode, 2 = acceleration control
 
   // this->setZeros(input[0], input[1], input[2], gain_in); // 7/21/2024 - what is this for? commenting out
   for (int i = 0; i < 3; i++)

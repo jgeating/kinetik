@@ -21,7 +21,6 @@ void Pads::calcVector() {
   double m_y_left = 0;
   double m_x_right = 0;
   double m_y_right = 0;
-  double cop_x, cop_y, cop_z;
 
   for (int i = 0; i < 8; i++){ // calculate moment arms of each load cell. relative to center of robot 
     ftemp[i] = ftemp[i] - ftare[i]; // subtract tare value to zero out forces when rider is on board
@@ -36,6 +35,15 @@ void Pads::calcVector() {
     m_y_left += m_y[i+4];
   }
 
+  double f_right = ftemp[0] + ftemp[1] + ftemp[2] + ftemp[3];
+  double f_left =  ftemp[4] + ftemp[5] + ftemp[6] + ftemp[7];
+
+  double f_front = ftemp[2] + ftemp[3] + ftemp[4] + ftemp[4];
+  double f_back =  ftemp[0] + ftemp[1] + ftemp[6] + ftemp[7];
+
+  double f_cw =    ftemp[0] + ftemp[1] + ftemp[4] + ftemp[5];
+  double f_ccw =   ftemp[2] + ftemp[3] + ftemp[6] + ftemp[7];
+
   this->cop_x_l = m_x_left / this->totalweight; // x coordinate of center of pressure for left pad, positive is right
   this->cop_y_l = m_y_left / this->totalweight; // y coordinate of center of pressure for left pad, positive is front
   this->cop_x_r = m_x_right / this->totalweight; // x coordinate of center of pressure for right pad, positive is right
@@ -43,9 +51,13 @@ void Pads::calcVector() {
   this->cop_x = (m_x_right + m_x_left) / this->totalweight; // x coordinate of center of pressure, positive is right
   this->cop_y = (m_y_right + m_y_left) / this->totalweight; // y coordinate of center of pressure, positive is front
   this->cop_z = (m_y_right - m_y_left) / this->totalweight; // rotational component of center of pressure, positive
-  this->x_out = constrain(this->cop_x / this->x_out_scale, -1, 1);  // x coordinate of center of pressure, positive is right
-  this->y_out = constrain(this->cop_y / this->y_out_scale, -1, 1);  // y coordinate of center of pressure, positive is front
-  this->z_out = constrain(this->cop_z / this->z_out_scale, -1, 1);  // rotational component of center of pressure, positive is clockwise
+  // this->x_out = constrain(this->cop_x / this->x_out_scale, -1, 1);  // x coordinate of center of pressure, positive is right
+  // this->y_out = constrain(this->cop_y / this->y_out_scale, -1, 1);  // y coordinate of center of pressure, positive is front
+  // this->z_out = constrain(this->cop_z / this->z_out_scale, -1, 1);  // rotational component of center of pressure, positive is clockwise
+  
+  this->x_out = constrain((f_right - f_left) / this->totalweight, -1, 1);
+  this->y_out = constrain((f_front - f_back) / this->totalweight, -1, 1);  
+  this->z_out = constrain((f_cw - f_ccw) / this->totalweight, -1, 1);  
 }
 
 void Pads::printDebug(){

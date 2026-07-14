@@ -39,21 +39,21 @@ Activate the venv first, then run `test.py`:
 ```powershell
 # Windows
 .venv\Scripts\activate
-python test.py
+python serial-telemetry\test.py
 
 # macOS / Linux
 source .venv/bin/activate
-python test.py
+python serial-telemetry/test.py
 ```
 
 Or run directly without activating:
 
 ```powershell
 # Windows
-.venv\Scripts\python test.py
+.venv\Scripts\python serial-telemetry\test.py
 
 # macOS / Linux
-.venv/bin/python test.py
+.venv/bin/python serial-telemetry/test.py
 ```
 
 ### Options

@@ -31,6 +31,7 @@ public:
   void setPosition(float position) override;
   void setAbsolutePosition(float position) override;
   void setVelocity(float revPerSec) override;
+  void setLimits(float maxVelocity, float maxCurrent);
   void disable() override;
   void enableWithClosedLoop() override;
   void enablePrintOnWrite() override;
@@ -89,6 +90,15 @@ void ODrive<_bus>::setVelocity(float revPerSec) {
   m_msg.len = 8;
   memcpy(m_msg.buf, &revPerSec, sizeof(revPerSec));
   memcpy(m_msg.buf + sizeof(revPerSec), &torqueFF, sizeof(torqueFF));
+  write();
+}
+
+template<CAN_DEV_TABLE _bus>
+void ODrive<_bus>::setLimits(float maxVelocity, float maxCurrent) {
+  m_msg.id = m_canId << 5 | 0x0f;
+  m_msg.len = 8;
+  memcpy(m_msg.buf, &maxVelocity, sizeof(maxVelocity));
+  memcpy(m_msg.buf + sizeof(maxVelocity), &maxCurrent, sizeof(maxCurrent));
   write();
 }
 
